@@ -1,7 +1,7 @@
 import Link from "next/link";
 import {
-  Users,
-  FileText,
+  Flame,
+  FileSignature,
   CalendarCheck,
   AlarmClock,
   CalendarDays,
@@ -48,18 +48,20 @@ export default async function DashboardPage() {
       {/* Cards de métricas */}
       <div className="grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-5">
         <StatCard
-          label="Leads novos"
-          value={d.leadsNovos}
-          icon={Users}
+          label="Leads Quentes"
+          value={d.leadsQuentes}
+          icon={Flame}
           tone="primary"
-          href="/leads?status=novo_lead"
+          hint="Ativos no funil"
+          href="/leads"
         />
         <StatCard
-          label="Orçamentos enviados"
-          value={d.orcamentosEnviados}
-          icon={FileText}
+          label="Falta assinar"
+          value={d.faltaAssinar}
+          icon={FileSignature}
           tone="purple"
-          href="/leads?status=orcamento_enviado"
+          hint="Em negociação"
+          href="/leads?status=negociacao"
         />
         <StatCard
           label="Follow-ups de hoje"

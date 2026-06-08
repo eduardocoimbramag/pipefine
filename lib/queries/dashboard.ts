@@ -8,8 +8,8 @@ import type {
 
 export interface DashboardData {
   // Cards
-  leadsNovos: number;
-  orcamentosEnviados: number;
+  leadsQuentes: number;
+  faltaAssinar: number;
   followupsHoje: number;
   followupsAtrasados: number;
   eventosFechadosMes: number;
@@ -52,8 +52,8 @@ export async function getDashboardData(
   };
 
   const [
-    leadsNovosRes,
-    orcamentosRes,
+    leadsQuentesRes,
+    faltaAssinarRes,
     fHojeRes,
     fAtrasadosRes,
     eventosMesRes,
@@ -63,17 +63,19 @@ export async function getDashboardData(
     proximosEventosRes,
     pagamentosRes,
   ] = await Promise.all([
+    // Leads quentes = ativos (qualquer status, exceto fechado e perdido)
     withCompany(
       supabase
         .from("leads")
         .select("id", { count: "exact", head: true })
-        .eq("status", "novo_lead"),
+        .not("status", "in", "(fechado,perdido)"),
     ),
+    // Falta assinar = leads ativos em negociação
     withCompany(
       supabase
         .from("leads")
         .select("id", { count: "exact", head: true })
-        .eq("status", "orcamento_enviado"),
+        .eq("status", "negociacao"),
     ),
     withFollowupCompany(
       supabase
@@ -158,8 +160,8 @@ export async function getDashboardData(
   }
 
   return {
-    leadsNovos: leadsNovosRes.count ?? 0,
-    orcamentosEnviados: orcamentosRes.count ?? 0,
+    leadsQuentes: leadsQuentesRes.count ?? 0,
+    faltaAssinar: faltaAssinarRes.count ?? 0,
     followupsHoje: fHojeRes.count ?? 0,
     followupsAtrasados: fAtrasadosRes.count ?? 0,
     eventosFechadosMes: eventosMesRes.count ?? 0,
