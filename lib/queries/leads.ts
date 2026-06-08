@@ -14,6 +14,8 @@ export interface LeadFilters {
   search?: string;
   dataEventoFrom?: string;
   dataEventoTo?: string;
+  /** Incluir leads perdidos? Por padrão são excluídos (vão para a aba própria). */
+  includeLost?: boolean;
 }
 
 const LEAD_SELECT = `
@@ -22,7 +24,7 @@ const LEAD_SELECT = `
   responsavel:users_profile!leads_responsavel_id_fkey ( id, full_name )
 `;
 
-/** Lista leads com filtros e busca. */
+/** Lista leads com filtros e busca. Exclui os perdidos por padrão. */
 export async function getLeads(
   filters: LeadFilters = {},
 ): Promise<LeadWithRelations[]> {
@@ -34,6 +36,7 @@ export async function getLeads(
 
   if (filters.companyId) query = query.eq("company_id", filters.companyId);
   if (filters.status) query = query.eq("status", filters.status);
+  else if (!filters.includeLost) query = query.neq("status", "perdido");
   if (filters.responsavelId)
     query = query.eq("responsavel_id", filters.responsavelId);
   if (filters.dataEventoFrom)
@@ -41,6 +44,31 @@ export async function getLeads(
   if (filters.dataEventoTo)
     query = query.lte("data_evento", filters.dataEventoTo);
 
+  if (filters.search) {
+    const s = filters.search.replace(/[%,]/g, "");
+    query = query.or(
+      `nome_cliente.ilike.%${s}%,telefone.ilike.%${s}%,instagram.ilike.%${s}%,email.ilike.%${s}%`,
+    );
+  }
+
+  const { data, error } = await query;
+  if (error) throw new Error(error.message);
+  return (data ?? []) as unknown as LeadWithRelations[];
+}
+
+/** Lista os leads perdidos (status = perdido), com filtros de empresa/busca. */
+export async function getLostLeads(filters: {
+  companyId?: string;
+  search?: string;
+} = {}): Promise<LeadWithRelations[]> {
+  const supabase = await createClient();
+  let query = supabase
+    .from("leads")
+    .select(LEAD_SELECT)
+    .eq("status", "perdido")
+    .order("updated_at", { ascending: false });
+
+  if (filters.companyId) query = query.eq("company_id", filters.companyId);
   if (filters.search) {
     const s = filters.search.replace(/[%,]/g, "");
     query = query.or(

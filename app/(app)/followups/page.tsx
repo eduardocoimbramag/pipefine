@@ -3,6 +3,7 @@ import { CalendarCheck, AlarmClock, CalendarClock, ListChecks } from "lucide-rea
 import { getFollowups, type FollowupBucket } from "@/lib/queries/followups";
 import { getLeads } from "@/lib/queries/leads";
 import { getProfiles } from "@/lib/queries/shared";
+import { getActiveCompanyContext } from "@/lib/active-company";
 import { PageHeader } from "@/components/page-header";
 import { Card, CardContent } from "@/components/ui/card";
 import { EmptyState } from "@/components/empty-state";
@@ -36,9 +37,11 @@ export default async function FollowupsPage({
       : "hoje"
   ) as FollowupBucket;
 
+  const { activeCompanyId, activeCompany } = await getActiveCompanyContext();
+
   const [followups, leads, profiles] = await Promise.all([
-    getFollowups(bucket),
-    getLeads(),
+    getFollowups(bucket, activeCompanyId ?? undefined),
+    getLeads({ companyId: activeCompanyId ?? undefined }),
     getProfiles(),
   ]);
 
@@ -51,7 +54,11 @@ export default async function FollowupsPage({
     <div className="space-y-5">
       <PageHeader
         title="Follow-ups"
-        description="Acompanhamentos pendentes — tudo dentro do painel."
+        description={
+          activeCompany
+            ? `${activeCompany.name} · acompanhamentos pendentes`
+            : "Acompanhamentos pendentes — tudo dentro do painel."
+        }
       >
         <AddFollowupDialog leads={leadOptions} profiles={profiles} />
       </PageHeader>

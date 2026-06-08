@@ -41,6 +41,16 @@ export async function getDashboardData(
     return companyId ? q.eq("company_id", companyId) : q;
   };
 
+  // Follow-ups não têm company_id próprio: filtram pela empresa do lead relacionado.
+  // Usamos inner join (leads!inner) para que o filtro restrinja as linhas.
+  const followupLeadEmbed = companyId
+    ? "lead:leads!inner ( id, nome_cliente, company_id )"
+    : "lead:leads ( id, nome_cliente, company_id )";
+  const withFollowupCompany = <T>(q: T): T => {
+    // @ts-expect-error — encadeamento dinâmico do query builder
+    return companyId ? q.eq("leads.company_id", companyId) : q;
+  };
+
   const [
     leadsNovosRes,
     orcamentosRes,
@@ -65,16 +75,20 @@ export async function getDashboardData(
         .select("id", { count: "exact", head: true })
         .eq("status", "orcamento_enviado"),
     ),
-    supabase
-      .from("followups")
-      .select("id", { count: "exact", head: true })
-      .eq("status", "pendente")
-      .eq("data_vencimento", today),
-    supabase
-      .from("followups")
-      .select("id", { count: "exact", head: true })
-      .eq("status", "pendente")
-      .lt("data_vencimento", today),
+    withFollowupCompany(
+      supabase
+        .from("followups")
+        .select(`id, ${followupLeadEmbed}`, { count: "exact", head: true })
+        .eq("status", "pendente")
+        .eq("data_vencimento", today),
+    ),
+    withFollowupCompany(
+      supabase
+        .from("followups")
+        .select(`id, ${followupLeadEmbed}`, { count: "exact", head: true })
+        .eq("status", "pendente")
+        .lt("data_vencimento", today),
+    ),
     withCompany(
       supabase
         .from("events")
@@ -91,15 +105,17 @@ export async function getDashboardData(
         .lte("data_evento", end)
         .neq("status_evento", "cancelado"),
     ),
-    supabase
-      .from("followups")
-      .select(
-        `*, lead:leads ( id, nome_cliente, company_id ), responsavel:users_profile!followups_responsavel_id_fkey ( id, full_name )`,
-      )
-      .eq("status", "pendente")
-      .lte("data_vencimento", today)
-      .order("data_vencimento")
-      .limit(10),
+    withFollowupCompany(
+      supabase
+        .from("followups")
+        .select(
+          `*, ${followupLeadEmbed}, responsavel:users_profile!followups_responsavel_id_fkey ( id, full_name )`,
+        )
+        .eq("status", "pendente")
+        .lte("data_vencimento", today)
+        .order("data_vencimento")
+        .limit(10),
+    ),
     withCompany(
       supabase
         .from("leads")

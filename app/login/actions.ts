@@ -3,6 +3,7 @@
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
+import { isEmailAllowedToSignup } from "@/lib/allowed-emails";
 import type { ActionResult } from "@/types";
 
 export async function signIn(
@@ -47,6 +48,15 @@ export async function signUp(
   }
   if (password.length < 6) {
     return { ok: false, error: "A senha deve ter pelo menos 6 caracteres." };
+  }
+
+  // Só e-mails previamente autorizados podem criar conta.
+  if (!isEmailAllowedToSignup(email)) {
+    return {
+      ok: false,
+      error:
+        "Este e-mail não está autorizado a criar uma conta. Fale com o administrador do sistema.",
+    };
   }
 
   const supabase = await createClient();

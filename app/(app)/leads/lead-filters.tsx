@@ -103,7 +103,8 @@ export function LeadFilters({
         </SelectTrigger>
         <SelectContent>
           <SelectItem value={ALL}>Todos os status</SelectItem>
-          {LEAD_STATUSES.map((s) => (
+          {/* "Perdido" tem aba própria (Leads perdidos) — fora do funil aqui. */}
+          {LEAD_STATUSES.filter((s) => s !== "perdido").map((s) => (
             <SelectItem key={s} value={s}>
               {LEAD_STATUS_LABELS[s]}
             </SelectItem>
