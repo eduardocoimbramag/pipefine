@@ -54,6 +54,7 @@ export default async function ClientesPage({
               <TableRow>
                 <TableHead>Nome</TableHead>
                 <TableHead className="hidden sm:table-cell">Telefone</TableHead>
+                <TableHead>Empresa</TableHead>
                 <TableHead>Tipo de evento</TableHead>
               </TableRow>
             </TableHeader>
@@ -70,6 +71,13 @@ export default async function ClientesPage({
                   </TableCell>
                   <TableCell className="hidden sm:table-cell text-sm text-muted-foreground">
                     {c.phone ?? "—"}
+                  </TableCell>
+                  <TableCell className="text-sm">
+                    {c.empresas.length > 0 ? (
+                      c.empresas.join(" / ")
+                    ) : (
+                      <span className="text-muted-foreground">—</span>
+                    )}
                   </TableCell>
                   <TableCell className="text-sm">
                     {c.tiposEvento.length > 0 ? (

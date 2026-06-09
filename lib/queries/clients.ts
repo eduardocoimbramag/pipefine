@@ -5,14 +5,20 @@ import type {
   EventWithRelations,
 } from "@/types";
 
-/** Cliente enriquecido com os tipos de evento que realizou/buscou. */
+/** Cliente enriquecido com empresas vinculadas e tipos de evento. */
 export interface ClientWithTipos extends Client {
+  empresas: string[];
   tiposEvento: string[];
 }
 
+interface EmbedRel {
+  company_id: string;
+  tipo_evento: string | null;
+  company: { name: string } | null;
+}
 interface ClientRowEmbed extends Client {
-  leads: { company_id: string; tipo_evento: string | null }[] | null;
-  events: { company_id: string; tipo_evento: string | null }[] | null;
+  leads: EmbedRel[] | null;
+  events: EmbedRel[] | null;
 }
 
 /**
@@ -35,8 +41,8 @@ export async function getClients(
     .from("clients")
     .select(
       `*,
-       leads ( company_id, tipo_evento ),
-       events ( company_id, tipo_evento )`,
+       leads ( company_id, tipo_evento, company:companies ( name ) ),
+       events ( company_id, tipo_evento, company:companies ( name ) )`,
     )
     .order("name");
 
@@ -63,22 +69,24 @@ export async function getClients(
       if (!temVinculo) continue;
     }
 
-    // Tipos de evento (de leads e eventos), considerando o filtro de empresa.
+    // Empresas e tipos de evento (de leads e eventos), respeitando o filtro.
+    const empresas = new Set<string>();
     const tipos = new Set<string>();
-    for (const l of leads) {
-      if (companyId && l.company_id !== companyId) continue;
-      if (l.tipo_evento) tipos.add(l.tipo_evento);
-    }
-    for (const e of events) {
-      if (companyId && e.company_id !== companyId) continue;
-      if (e.tipo_evento) tipos.add(e.tipo_evento);
+    for (const rel of [...leads, ...events]) {
+      if (companyId && rel.company_id !== companyId) continue;
+      if (rel.company?.name) empresas.add(rel.company.name);
+      if (rel.tipo_evento) tipos.add(rel.tipo_evento);
     }
 
     // Remove os campos embutidos antes de devolver o cliente.
     const { leads: _l, events: _e, ...client } = row;
     void _l;
     void _e;
-    result.push({ ...(client as Client), tiposEvento: Array.from(tipos) });
+    result.push({
+      ...(client as Client),
+      empresas: Array.from(empresas),
+      tiposEvento: Array.from(tipos),
+    });
   }
 
   return result;
