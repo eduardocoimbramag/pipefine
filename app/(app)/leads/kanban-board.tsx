@@ -16,7 +16,13 @@ import {
   type DragStartEvent,
   type DragEndEvent,
 } from "@dnd-kit/core";
-import { GripVertical, Loader2, XCircle, CalendarClock } from "lucide-react";
+import {
+  GripVertical,
+  Loader2,
+  XCircle,
+  CalendarClock,
+  CheckCircle2,
+} from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -25,14 +31,16 @@ import { Badge } from "@/components/ui/badge";
 import {
   Dialog,
   DialogContent,
+  DialogDescription,
   DialogFooter,
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Field } from "@/components/form/field";
 import { updateLeadStatus } from "@/app/actions/leads";
+import { closeLeadAsEvent } from "@/app/actions/events";
 import { formatCurrency, cn } from "@/lib/utils";
-import { formatDate, isOverdue } from "@/lib/date";
+import { formatDate, isOverdue, todayISO } from "@/lib/date";
 import {
   KANBAN_COLUMNS,
   KANBAN_LOST_COLUMN,
@@ -77,6 +85,18 @@ export function KanbanBoard({ leads }: { leads: LeadWithRelations[] }) {
   } | null>(null);
   const [followupDays, setFollowupDays] = useState("2");
   const [savingFollowup, setSavingFollowup] = useState(false);
+
+  // Pop-up de marcação de evento ao mover para "Fechado"
+  const [eventDialog, setEventDialog] = useState<{
+    lead: LeadWithRelations;
+  } | null>(null);
+  const [eventForm, setEventForm] = useState({
+    data_evento: "",
+    valor_total: "",
+    valor_entrada: "",
+    local_evento: "",
+  });
+  const [savingEvent, setSavingEvent] = useState(false);
 
   // Re-sincroniza quando os dados do servidor mudam
   const leadsKey = useMemo(
@@ -165,18 +185,50 @@ export function KanbanBoard({ leads }: { leads: LeadWithRelations[] }) {
       return;
     }
 
-    // Move otimista
-    moveCardInState(leadId, fromColumn, toColumn);
-
-    // "Fechado" não precisa de follow-up — move direto.
+    // Mover para "Fechado" abre o pop-up de marcação de evento.
+    // Não move ainda — o card sai do funil só ao concluir o pop-up.
     if (toColumn === "fechado") {
-      persistStatus(leadId, COLUMN_DEFAULT_STATUS[toColumn]);
+      setEventForm({
+        data_evento: lead.data_evento ?? todayISO(),
+        valor_total:
+          lead.valor_estimado != null ? String(lead.valor_estimado) : "",
+        valor_entrada: "",
+        local_evento: lead.local_evento ?? "",
+      });
+      setEventDialog({ lead });
       return;
     }
 
-    // Demais colunas: pergunta o follow-up (com opção de pular).
+    // Move otimista (demais colunas)
+    moveCardInState(leadId, fromColumn, toColumn);
+
+    // Pergunta o follow-up (com opção de pular).
     setFollowupDays("2");
     setFollowupDialog({ lead, toColumn });
+  }
+
+  function confirmCloseEvent() {
+    if (!eventDialog) return;
+    const { lead } = eventDialog;
+
+    const fd = new FormData();
+    fd.set("data_evento", eventForm.data_evento);
+    fd.set("valor_total", eventForm.valor_total);
+    fd.set("valor_entrada", eventForm.valor_entrada);
+    fd.set("local_evento", eventForm.local_evento);
+
+    setSavingEvent(true);
+    startTransition(async () => {
+      const res = await closeLeadAsEvent(lead.id, fd);
+      setSavingEvent(false);
+      if (res.ok) {
+        toast.success("Lead fechado! Evento criado e cliente cadastrado.");
+        setEventDialog(null);
+        router.refresh();
+      } else {
+        toast.error(res.error);
+      }
+    });
   }
 
   function confirmFollowup(withFollowup: boolean) {
@@ -385,6 +437,110 @@ export function KanbanBoard({ leads }: { leads: LeadWithRelations[] }) {
             >
               {savingFollowup && <Loader2 className="h-4 w-4 animate-spin" />}
               Criar follow-up
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Pop-up: marcar evento ao fechar o lead */}
+      <Dialog
+        open={!!eventDialog}
+        onOpenChange={(o) => {
+          if (!o && !savingEvent) setEventDialog(null);
+        }}
+      >
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <CheckCircle2 className="h-5 w-5 text-success" /> Fechar lead — novo
+              evento
+            </DialogTitle>
+            <DialogDescription>
+              {eventDialog?.lead.nome_cliente}
+              {eventDialog?.lead.company?.name
+                ? ` · ${eventDialog.lead.company.name}`
+                : ""}
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="grid gap-4 sm:grid-cols-2">
+            <Field label="Data do evento" htmlFor="ev_data" required>
+              <Input
+                id="ev_data"
+                type="date"
+                value={eventForm.data_evento}
+                onChange={(e) =>
+                  setEventForm((f) => ({ ...f, data_evento: e.target.value }))
+                }
+              />
+            </Field>
+            <Field label="Local" htmlFor="ev_local">
+              <Input
+                id="ev_local"
+                value={eventForm.local_evento}
+                onChange={(e) =>
+                  setEventForm((f) => ({ ...f, local_evento: e.target.value }))
+                }
+              />
+            </Field>
+            <Field label="Valor total (R$)" htmlFor="ev_total">
+              <Input
+                id="ev_total"
+                type="number"
+                step="0.01"
+                min={0}
+                value={eventForm.valor_total}
+                onChange={(e) =>
+                  setEventForm((f) => ({ ...f, valor_total: e.target.value }))
+                }
+              />
+            </Field>
+            <Field label="Entrada paga (R$)" htmlFor="ev_entrada">
+              <Input
+                id="ev_entrada"
+                type="number"
+                step="0.01"
+                min={0}
+                value={eventForm.valor_entrada}
+                onChange={(e) =>
+                  setEventForm((f) => ({ ...f, valor_entrada: e.target.value }))
+                }
+              />
+            </Field>
+          </div>
+
+          <div className="flex items-center justify-between rounded-lg bg-muted/40 px-3 py-2 text-sm">
+            <span className="text-muted-foreground">Restante a receber</span>
+            <span className="font-semibold text-warning-foreground">
+              {formatCurrency(
+                Math.max(
+                  (Number(eventForm.valor_total) || 0) -
+                    (Number(eventForm.valor_entrada) || 0),
+                  0,
+                ),
+              )}
+            </span>
+          </div>
+          <p className="text-xs text-muted-foreground">
+            O faturamento entra no mês da data do evento. Após confirmar, o lead
+            sai do funil e vai para o Banco de Clientes.
+          </p>
+
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => setEventDialog(null)}
+              disabled={savingEvent}
+            >
+              Cancelar
+            </Button>
+            <Button
+              variant="success"
+              onClick={confirmCloseEvent}
+              disabled={savingEvent || !eventForm.data_evento}
+            >
+              {savingEvent && <Loader2 className="h-4 w-4 animate-spin" />}
+              Fechar e criar evento
             </Button>
           </DialogFooter>
         </DialogContent>

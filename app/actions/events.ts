@@ -55,6 +55,112 @@ function derivePaymentStatus(
   return "aguardando_pagamento";
 }
 
+/**
+ * Fecha um lead criando o evento a partir do pop-up do Kanban.
+ *
+ * - Cria/garante um cliente vinculado (vai para o "Banco de Clientes").
+ * - Cria o evento (aparece na aba Eventos). O faturamento entra no mês da
+ *   `data_evento`, pois o Financeiro agrega pela data do evento.
+ * - Marca o lead como "fechado" (some do Kanban).
+ *
+ * Diferente de `convertLeadToEvent`, NÃO redireciona — retorna um ActionResult
+ * para o pop-up tratar (toast + refresh).
+ */
+export async function closeLeadAsEvent(
+  leadId: string,
+  formData: FormData,
+): Promise<ActionResult<{ eventId: string }>> {
+  try {
+    await requireUser();
+    const supabase = await createClient();
+
+    const dataEvento = String(formData.get("data_evento") ?? "");
+    const local = emptyToNull(formData.get("local_evento"));
+    const total = toNumberOrNull(formData.get("valor_total")) ?? 0;
+    const entrada = toNumberOrNull(formData.get("valor_entrada")) ?? 0;
+
+    if (!dataEvento) {
+      return { ok: false, error: "Informe a data do evento." };
+    }
+    if (entrada > total) {
+      return {
+        ok: false,
+        error: "A entrada não pode ser maior que o valor total.",
+      };
+    }
+
+    const { data: lead } = await supabase
+      .from("leads")
+      .select("*")
+      .eq("id", leadId)
+      .single();
+    if (!lead) return { ok: false, error: "Lead não encontrado." };
+
+    // Garante um cliente vinculado (Banco de Clientes).
+    let clientId = lead.client_id;
+    if (!clientId) {
+      const { data: client } = await supabase
+        .from("clients")
+        .insert({
+          name: lead.nome_cliente,
+          phone: lead.telefone,
+          email: lead.email,
+          instagram: lead.instagram,
+        })
+        .select("id")
+        .single();
+      clientId = client?.id ?? null;
+    }
+
+    // Cria o evento (entra na aba Eventos e no Financeiro pelo mês da data).
+    const { data: novoEvento, error: evError } = await supabase
+      .from("events")
+      .insert({
+        company_id: lead.company_id,
+        lead_id: lead.id,
+        client_id: clientId,
+        nome_cliente: lead.nome_cliente,
+        tipo_evento: lead.tipo_evento,
+        data_evento: dataEvento,
+        local_evento: local ?? lead.local_evento,
+        quantidade_pessoas: lead.quantidade_pessoas,
+        valor_total: total,
+        valor_entrada: entrada,
+        valor_restante: Math.max(total - entrada, 0),
+        responsavel_id: lead.responsavel_id,
+        status_evento: "confirmado",
+        status_pagamento: derivePaymentStatus(
+          total,
+          entrada,
+          "aguardando_pagamento",
+        ),
+      })
+      .select("id")
+      .single();
+    if (evError) throw evError;
+
+    // Fecha o lead (some do Kanban) e vincula o cliente criado.
+    await supabase
+      .from("leads")
+      .update({ status: "fechado", client_id: clientId })
+      .eq("id", leadId);
+
+    revalidatePath("/leads");
+    revalidatePath("/eventos");
+    revalidatePath("/financeiro");
+    revalidatePath("/clientes");
+    revalidatePath("/dashboard");
+
+    return {
+      ok: true,
+      data: { eventId: novoEvento!.id },
+      message: "Lead fechado e evento criado.",
+    };
+  } catch (e) {
+    return { ok: false, error: errMsg(e) };
+  }
+}
+
 export async function createEvent(
   formData: FormData,
 ): Promise<ActionResult<{ id: string }>> {

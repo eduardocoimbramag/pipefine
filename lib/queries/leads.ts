@@ -36,7 +36,10 @@ export async function getLeads(
 
   if (filters.companyId) query = query.eq("company_id", filters.companyId);
   if (filters.status) query = query.eq("status", filters.status);
-  else if (!filters.includeLost) query = query.neq("status", "perdido");
+  // Por padrão, leads perdidos (aba própria) e fechados (viraram evento/cliente)
+  // saem do funil.
+  else if (!filters.includeLost)
+    query = query.not("status", "in", "(perdido,fechado)");
   if (filters.responsavelId)
     query = query.eq("responsavel_id", filters.responsavelId);
   if (filters.dataEventoFrom)
