@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { Logo } from "@/components/logo";
 import { LoginForm } from "./login-form";
+import { LoginHero } from "./login-hero";
 
 export const metadata = { title: "Entrar — Pipefine" };
 
@@ -13,26 +14,8 @@ export default async function LoginPage({
 
   return (
     <div className="grid min-h-screen lg:grid-cols-2">
-      {/* Lado visual (desktop) — fundo grafite, logo/wordmark em creme */}
-      <div className="relative hidden flex-col justify-between overflow-hidden bg-primary p-12 text-primary-foreground lg:flex">
-        <div className="flex items-center">
-          <Logo className="h-12 w-auto" />
-        </div>
-        <div className="space-y-4">
-          <h1 className="font-serif text-5xl font-semibold leading-[1.05]">
-            Central de Gestão
-          </h1>
-          <p className="max-w-md text-primary-foreground/75">
-            Organize leads, orçamentos, follow-ups, eventos e o financeiro das
-            suas empresas em um só lugar. Nada de cliente esquecido.
-          </p>
-        </div>
-        <p className="text-sm text-primary-foreground/60">
-          Sofistic Buffet · Gran Dose
-        </p>
-        <div className="absolute -right-24 -top-24 h-72 w-72 rounded-full bg-card/10" />
-        <div className="absolute -bottom-32 -left-10 h-80 w-80 rounded-full bg-card/5" />
-      </div>
+      {/* Lado visual animado (desktop) — só a logo, sobre painel interativo */}
+      <LoginHero />
 
       {/* Formulário */}
       <div className="flex items-center justify-center p-6">

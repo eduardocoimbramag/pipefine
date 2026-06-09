@@ -40,7 +40,7 @@ export function SidebarBrand() {
   return (
     <Link
       href="/dashboard"
-      className="flex h-16 items-center border-b px-5 text-foreground"
+      className="flex h-16 items-center justify-center border-b px-5 text-foreground"
     >
       <Logo className="h-11 w-auto" />
     </Link>
