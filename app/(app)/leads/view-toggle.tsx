@@ -11,15 +11,16 @@ export function ViewToggle({ view }: { view: "lista" | "kanban" }) {
 
   function setView(v: "lista" | "kanban") {
     const next = new URLSearchParams(params.toString());
-    if (v === "lista") next.delete("view");
+    // Kanban é o padrão (sem parâmetro); lista usa ?view=lista.
+    if (v === "kanban") next.delete("view");
     else next.set("view", v);
     const qs = next.toString();
     router.push(qs ? `${pathname}?${qs}` : pathname);
   }
 
   const items = [
-    { key: "lista" as const, label: "Lista", icon: LayoutList },
     { key: "kanban" as const, label: "Kanban", icon: Columns3 },
+    { key: "lista" as const, label: "Lista", icon: LayoutList },
   ];
 
   return (

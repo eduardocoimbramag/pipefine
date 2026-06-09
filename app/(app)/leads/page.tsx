@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { Plus, Users } from "lucide-react";
 import { getLeads, type LeadFilters as Filters } from "@/lib/queries/leads";
-import { getCompanies, getProfiles } from "@/lib/queries/shared";
+import { getCompanies } from "@/lib/queries/shared";
 import { PageHeader } from "@/components/page-header";
 import { EmptyState } from "@/components/empty-state";
 import { Button } from "@/components/ui/button";
@@ -38,7 +38,8 @@ export default async function LeadsPage({
   }>;
 }) {
   const sp = await searchParams;
-  const view: "lista" | "kanban" = sp.view === "kanban" ? "kanban" : "lista";
+  // Kanban é a visão principal; lista é a secundária (?view=lista).
+  const view: "lista" | "kanban" = sp.view === "lista" ? "lista" : "kanban";
   const { activeCompanyId } = await getActiveCompanyContext();
 
   // A empresa em foco (topbar) tem prioridade; senão usa o filtro local da página.
@@ -51,10 +52,9 @@ export default async function LeadsPage({
     responsavelId: sp.responsavel,
   };
 
-  const [leads, companies, profiles] = await Promise.all([
+  const [leads, companies] = await Promise.all([
     getLeads(filters),
     getCompanies(),
-    getProfiles(),
   ]);
 
   return (
@@ -70,7 +70,6 @@ export default async function LeadsPage({
 
       <LeadFilters
         companies={companies}
-        profiles={profiles}
         lockCompany={activeCompanyId !== null}
       />
 

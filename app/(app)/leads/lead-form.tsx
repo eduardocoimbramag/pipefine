@@ -15,7 +15,12 @@ import {
 } from "@/components/ui/select";
 import { Field } from "@/components/form/field";
 import { createLead, updateLead } from "@/app/actions/leads";
-import { LEAD_STATUSES, LEAD_STATUS_LABELS, EVENT_TYPES } from "@/types";
+import {
+  FUNNEL_STATUSES,
+  LEAD_STATUS_LABELS,
+  EVENT_TYPES,
+  type LeadStatus,
+} from "@/types";
 import type { Company, Lead } from "@/types";
 
 export function LeadForm({
@@ -38,6 +43,13 @@ export function LeadForm({
   );
   const [status, setStatus] = useState(lead?.status ?? "novo_lead");
   const [tipoEvento, setTipoEvento] = useState(lead?.tipo_evento ?? "");
+
+  // Opções de status = funil do Kanban. Se estiver editando um lead com status
+  // fora do funil (ex.: fechado/perdido), mantém o atual na lista para não perdê-lo.
+  const statusOptions: LeadStatus[] =
+    lead && !FUNNEL_STATUSES.includes(lead.status)
+      ? [lead.status, ...FUNNEL_STATUSES]
+      : FUNNEL_STATUSES;
 
   function onSubmit(formData: FormData) {
     setError(null);
@@ -86,7 +98,7 @@ export function LeadForm({
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
-              {LEAD_STATUSES.map((s) => (
+              {statusOptions.map((s) => (
                 <SelectItem key={s} value={s}>
                   {LEAD_STATUS_LABELS[s]}
                 </SelectItem>

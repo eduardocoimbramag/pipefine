@@ -129,6 +129,15 @@ export const COLUMN_DEFAULT_STATUS: Record<string, LeadStatus> = (() => {
   return map;
 })();
 
+/**
+ * Status do funil para seleção (1 por coluna do Kanban), usado no formulário de
+ * novo lead e no filtro de status da lista. Exclui "Fechado" (vira evento via
+ * pop-up) e "Perdido" (tem aba própria).
+ */
+export const FUNNEL_STATUSES: LeadStatus[] = KANBAN_COLUMNS.filter(
+  (c) => c.id !== "fechado",
+).map((c) => c.statuses[0]);
+
 export const LEAD_ORIGINS = [
   "instagram",
   "indicacao",

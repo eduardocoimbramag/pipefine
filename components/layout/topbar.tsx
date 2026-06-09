@@ -1,8 +1,10 @@
 "use client";
 
 import { useState, useTransition } from "react";
+import Link from "next/link";
 import { Menu, LogOut, User as UserIcon, ChevronDown } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Logo } from "@/components/logo";
 import {
   Sheet,
   SheetContent,
@@ -62,7 +64,12 @@ export function Topbar({
             <SidebarNav onNavigate={() => setOpen(false)} />
           </SheetContent>
         </Sheet>
-        <div className="lg:hidden font-bold text-primary">Pipefine</div>
+        <Link
+          href="/dashboard"
+          className="flex items-center text-foreground lg:hidden"
+        >
+          <Logo className="h-8 w-auto" />
+        </Link>
 
         {/* Seletor de empresa em foco */}
         <CompanySwitcher

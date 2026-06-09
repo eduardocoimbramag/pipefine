@@ -2,8 +2,8 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Sparkles } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { Logo } from "@/components/logo";
 import { NAV_ITEMS } from "./nav-config";
 
 export function SidebarNav({ onNavigate }: { onNavigate?: () => void }) {
@@ -40,12 +40,9 @@ export function SidebarBrand() {
   return (
     <Link
       href="/dashboard"
-      className="flex h-16 items-center gap-2 border-b px-5 text-lg font-bold text-sidebar-primary"
+      className="flex h-16 items-center border-b px-5 text-foreground"
     >
-      <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary text-primary-foreground">
-        <Sparkles className="h-5 w-5" />
-      </span>
-      Pipefine
+      <Logo className="h-11 w-auto" />
     </Link>
   );
 }

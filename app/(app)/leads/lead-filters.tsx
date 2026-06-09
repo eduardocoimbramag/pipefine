@@ -13,21 +13,18 @@ import {
 } from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
 import {
-  LEAD_STATUSES,
+  FUNNEL_STATUSES,
   LEAD_STATUS_LABELS,
   type Company,
-  type UserProfile,
 } from "@/types";
 
 const ALL = "__all__";
 
 export function LeadFilters({
   companies,
-  profiles,
   lockCompany = false,
 }: {
   companies: Company[];
-  profiles: UserProfile[];
   /** Quando há empresa em foco na topbar, oculta o filtro local de empresa. */
   lockCompany?: boolean;
 }) {
@@ -58,10 +55,7 @@ export function LeadFilters({
   }, [search]);
 
   const hasFilters =
-    params.get("company") ||
-    params.get("status") ||
-    params.get("responsavel") ||
-    params.get("q");
+    params.get("company") || params.get("status") || params.get("q");
 
   return (
     <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center">
@@ -103,27 +97,10 @@ export function LeadFilters({
         </SelectTrigger>
         <SelectContent>
           <SelectItem value={ALL}>Todos os status</SelectItem>
-          {/* "Perdido" tem aba própria (Leads perdidos) — fora do funil aqui. */}
-          {LEAD_STATUSES.filter((s) => s !== "perdido").map((s) => (
+          {/* Apenas os status do funil do Kanban. */}
+          {FUNNEL_STATUSES.map((s) => (
             <SelectItem key={s} value={s}>
               {LEAD_STATUS_LABELS[s]}
-            </SelectItem>
-          ))}
-        </SelectContent>
-      </Select>
-
-      <Select
-        value={params.get("responsavel") ?? ALL}
-        onValueChange={(v) => setParam("responsavel", v)}
-      >
-        <SelectTrigger className="w-full sm:w-[170px]">
-          <SelectValue placeholder="Responsável" />
-        </SelectTrigger>
-        <SelectContent>
-          <SelectItem value={ALL}>Todos</SelectItem>
-          {profiles.map((p) => (
-            <SelectItem key={p.id} value={p.id}>
-              {p.full_name ?? p.email}
             </SelectItem>
           ))}
         </SelectContent>

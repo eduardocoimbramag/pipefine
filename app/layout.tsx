@@ -1,11 +1,21 @@
 import type { Metadata } from "next";
-import { Inter } from "next/font/google";
+import { Manrope, Cormorant_Garamond } from "next/font/google";
 import "./globals.css";
 import { Toaster } from "@/components/ui/sonner";
 
-const inter = Inter({
+// Interface do sistema
+const manrope = Manrope({
   variable: "--font-sans",
   subsets: ["latin"],
+  display: "swap",
+});
+
+// Logo, wordmark e títulos especiais
+const cormorant = Cormorant_Garamond({
+  variable: "--font-serif",
+  subsets: ["latin"],
+  weight: ["400", "500", "600", "700"],
+  display: "swap",
 });
 
 export const metadata: Metadata = {
@@ -20,7 +30,10 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="pt-BR" className={`${inter.variable} h-full`}>
+    <html
+      lang="pt-BR"
+      className={`${manrope.variable} ${cormorant.variable} h-full`}
+    >
       <body className="min-h-full bg-background text-foreground antialiased">
         {children}
         <Toaster />
