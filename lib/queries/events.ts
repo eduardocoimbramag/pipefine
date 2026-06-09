@@ -1,5 +1,10 @@
 import { createClient } from "@/lib/supabase/server";
-import type { EventWithRelations, EventStatus, PaymentStatus } from "@/types";
+import type {
+  EventWithRelations,
+  EventStatus,
+  PaymentStatus,
+  PaymentInstallment,
+} from "@/types";
 
 export interface EventFilters {
   companyId?: string;
@@ -55,4 +60,17 @@ export async function getEventById(
     .eq("id", id)
     .maybeSingle();
   return (data as unknown as EventWithRelations) ?? null;
+}
+
+/** Lista as parcelas de um evento, ordenadas por número. */
+export async function getEventInstallments(
+  eventId: string,
+): Promise<PaymentInstallment[]> {
+  const supabase = await createClient();
+  const { data } = await supabase
+    .from("payment_installments")
+    .select("*")
+    .eq("event_id", eventId)
+    .order("numero", { ascending: true });
+  return (data ?? []) as PaymentInstallment[];
 }

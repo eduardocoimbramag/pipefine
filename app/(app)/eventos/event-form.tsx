@@ -15,8 +15,16 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Field } from "@/components/form/field";
+import {
+  PaymentPlanEditor,
+  type PaymentPlanValue,
+} from "@/components/payment-plan-editor";
 import { createEvent, updateEvent } from "@/app/actions/events";
-import { formatCurrency } from "@/lib/utils";
+import {
+  generateInstallments,
+  type GeneratedInstallment,
+} from "@/lib/installments";
+import { todayISO } from "@/lib/date";
 import {
   EVENT_STATUSES,
   EVENT_STATUS_LABELS,
@@ -29,12 +37,15 @@ export function EventForm({
   profiles,
   event,
   defaultCompanyId,
+  initialInstallments,
 }: {
   companies: Company[];
   profiles: UserProfile[];
   event?: EventItem;
   /** Empresa em foco na topbar — pré-seleciona o campo ao criar um evento novo. */
   defaultCompanyId?: string;
+  /** Parcelas já existentes (ao editar um evento). */
+  initialInstallments?: GeneratedInstallment[];
 }) {
   const router = useRouter();
   const [pending, start] = useTransition();
@@ -49,10 +60,25 @@ export function EventForm({
   const [responsavel, setResponsavel] = useState(event?.responsavel_id ?? "");
   const [tipoEvento, setTipoEvento] = useState(event?.tipo_evento ?? "");
 
-  // Cálculo do restante em tempo real
+  // Valor total e data do evento controlados (alimentam o plano de pagamento)
   const [total, setTotal] = useState(event?.valor_total ?? 0);
-  const [entrada, setEntrada] = useState(event?.valor_entrada ?? 0);
-  const restante = Math.max((Number(total) || 0) - (Number(entrada) || 0), 0);
+  const [dataEvento, setDataEvento] = useState(event?.data_evento ?? "");
+
+  // Plano de pagamento (forma + parcelas). Inicia com o cronograma já gerado
+  // (ou as parcelas existentes ao editar), para valer mesmo sem interação.
+  const [plan, setPlan] = useState<PaymentPlanValue>(() => {
+    const method = event?.payment_method ?? "total";
+    if (initialInstallments?.length) return { method, installments: initialInstallments };
+    return {
+      method,
+      installments: generateInstallments({
+        method,
+        valorTotal: event?.valor_total ?? 0,
+        dataEvento: event?.data_evento ?? "",
+        hoje: todayISO(),
+      }),
+    };
+  });
 
   function onSubmit(formData: FormData) {
     setError(null);
@@ -60,6 +86,8 @@ export function EventForm({
     formData.set("status_evento", statusEvento);
     formData.set("responsavel_id", responsavel);
     formData.set("tipo_evento", tipoEvento);
+    formData.set("payment_method", plan.method);
+    formData.set("installments", JSON.stringify(plan.installments));
 
     start(async () => {
       const res = event
@@ -144,7 +172,8 @@ export function EventForm({
             id="data_evento"
             name="data_evento"
             type="date"
-            defaultValue={event?.data_evento ?? ""}
+            value={dataEvento}
+            onChange={(e) => setDataEvento(e.target.value)}
             required
           />
         </Field>
@@ -222,41 +251,33 @@ export function EventForm({
       </Field>
 
       {/* Financeiro */}
-      <div className="rounded-lg border bg-muted/30 p-4">
-        <p className="mb-3 text-sm font-medium">Financeiro</p>
-        <div className="grid gap-4 sm:grid-cols-3">
-          <Field label="Valor total (R$)" htmlFor="valor_total">
-            <Input
-              id="valor_total"
-              name="valor_total"
-              type="number"
-              step="0.01"
-              min={0}
-              value={total}
-              onChange={(e) => setTotal(Number(e.target.value))}
-            />
-          </Field>
-          <Field label="Entrada paga (R$)" htmlFor="valor_entrada">
-            <Input
-              id="valor_entrada"
-              name="valor_entrada"
-              type="number"
-              step="0.01"
-              min={0}
-              value={entrada}
-              onChange={(e) => setEntrada(Number(e.target.value))}
-            />
-          </Field>
-          <Field label="Restante">
-            <div className="flex h-9 items-center rounded-md border bg-card px-3 text-sm font-semibold text-warning-foreground">
-              {formatCurrency(restante)}
-            </div>
-          </Field>
-        </div>
-        <p className="mt-2 text-xs text-muted-foreground">
-          O status de pagamento é calculado automaticamente a partir dos valores.
-        </p>
+      <div className="space-y-3 rounded-lg border bg-muted/30 p-4">
+        <p className="text-sm font-medium">Financeiro</p>
+        <Field label="Valor total (R$)" htmlFor="valor_total" className="sm:max-w-xs">
+          <Input
+            id="valor_total"
+            name="valor_total"
+            type="number"
+            step="0.01"
+            min={0}
+            value={total}
+            onChange={(e) => setTotal(Number(e.target.value))}
+          />
+        </Field>
+
+        {/* O recebido/restante e o status de pagamento são derivados das
+            parcelas marcadas como pagas. */}
+        <PaymentPlanEditor
+          valorTotal={Number(total) || 0}
+          dataEvento={dataEvento}
+          onChange={setPlan}
+          initialMethod={event?.payment_method ?? "total"}
+          initialInstallments={initialInstallments}
+        />
       </div>
+
+      {/* O valor_entrada é gerido pelas parcelas; mantido oculto para o backend. */}
+      <input type="hidden" name="valor_entrada" value={event?.valor_entrada ?? 0} />
 
       <Field label="Observações operacionais" htmlFor="observacoes_operacionais">
         <Textarea

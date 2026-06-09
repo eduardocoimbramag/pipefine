@@ -10,6 +10,7 @@ import type {
   FollowupStatus,
   EventStatus,
   PaymentStatus,
+  PaymentMethod,
   UserRole,
 } from "./enums";
 
@@ -104,10 +105,21 @@ export type EventRow = Timestamps & {
   valor_entrada: number;
   valor_restante: number;
   forma_pagamento: string | null;
+  payment_method: PaymentMethod | null;
   status_pagamento: PaymentStatus;
   status_evento: EventStatus;
   observacoes_operacionais: string | null;
   responsavel_id: string | null;
+};
+
+export type PaymentInstallmentRow = Timestamps & {
+  id: string;
+  event_id: string;
+  numero: number;
+  data_vencimento: string;
+  valor: number;
+  pago: boolean;
+  pago_em: string | null;
 };
 
 export type ActivityLogRow = {
@@ -183,6 +195,11 @@ export interface Database {
         EventRow,
         Insert<EventRow, "status_pagamento" | "status_evento">,
         Update<EventRow>
+      >;
+      payment_installments: TableDef<
+        PaymentInstallmentRow,
+        Insert<PaymentInstallmentRow, "pago">,
+        Update<PaymentInstallmentRow>
       >;
       activity_logs: TableDef<
         ActivityLogRow,

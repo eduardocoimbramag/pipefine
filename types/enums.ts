@@ -213,6 +213,30 @@ export const PAYMENT_STATUS_TONE: Record<PaymentStatus, BadgeTone> = {
 };
 
 // ---------------------------------------------------------------------------
+// Formas de pagamento (3 modelos)
+// ---------------------------------------------------------------------------
+export const PAYMENT_METHODS = [
+  "total",
+  "entrada_50_50",
+  "parcelado",
+] as const;
+export type PaymentMethod = (typeof PAYMENT_METHODS)[number];
+
+export const PAYMENT_METHOD_LABELS: Record<PaymentMethod, string> = {
+  total: "Pagamento total",
+  entrada_50_50: "50% reserva + 50% antes do evento",
+  parcelado: "Parcelado até o evento",
+};
+
+export const PAYMENT_METHOD_DESCRIPTIONS: Record<PaymentMethod, string> = {
+  total: "Valor integral em uma única parcela.",
+  entrada_50_50:
+    "50% no ato do contrato (reserva da data) e 50% até 5 dias antes do evento.",
+  parcelado:
+    "1ª parcela em uma data escolhida e o restante na mesma data dos meses seguintes, até o evento.",
+};
+
+// ---------------------------------------------------------------------------
 // Perfis de usuário
 // ---------------------------------------------------------------------------
 export const USER_ROLES = [

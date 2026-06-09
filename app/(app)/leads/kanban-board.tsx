@@ -37,8 +37,13 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Field } from "@/components/form/field";
+import {
+  PaymentPlanEditor,
+  type PaymentPlanValue,
+} from "@/components/payment-plan-editor";
 import { updateLeadStatus } from "@/app/actions/leads";
 import { closeLeadAsEvent } from "@/app/actions/events";
+import { generateInstallments } from "@/lib/installments";
 import { formatCurrency, cn } from "@/lib/utils";
 import { formatDate, isOverdue, todayISO } from "@/lib/date";
 import {
@@ -93,8 +98,11 @@ export function KanbanBoard({ leads }: { leads: LeadWithRelations[] }) {
   const [eventForm, setEventForm] = useState({
     data_evento: "",
     valor_total: "",
-    valor_entrada: "",
     local_evento: "",
+  });
+  const [plan, setPlan] = useState<PaymentPlanValue>({
+    method: "total",
+    installments: [],
   });
   const [savingEvent, setSavingEvent] = useState(false);
 
@@ -188,11 +196,21 @@ export function KanbanBoard({ leads }: { leads: LeadWithRelations[] }) {
     // Mover para "Fechado" abre o pop-up de marcação de evento.
     // Não move ainda — o card sai do funil só ao concluir o pop-up.
     if (toColumn === "fechado") {
+      const dataEv = lead.data_evento ?? todayISO();
+      const totalEv = lead.valor_estimado ?? 0;
+      setPlan({
+        method: "total",
+        installments: generateInstallments({
+          method: "total",
+          valorTotal: totalEv,
+          dataEvento: dataEv,
+          hoje: todayISO(),
+        }),
+      });
       setEventForm({
-        data_evento: lead.data_evento ?? todayISO(),
+        data_evento: dataEv,
         valor_total:
           lead.valor_estimado != null ? String(lead.valor_estimado) : "",
-        valor_entrada: "",
         local_evento: lead.local_evento ?? "",
       });
       setEventDialog({ lead });
@@ -214,8 +232,9 @@ export function KanbanBoard({ leads }: { leads: LeadWithRelations[] }) {
     const fd = new FormData();
     fd.set("data_evento", eventForm.data_evento);
     fd.set("valor_total", eventForm.valor_total);
-    fd.set("valor_entrada", eventForm.valor_entrada);
     fd.set("local_evento", eventForm.local_evento);
+    fd.set("payment_method", plan.method);
+    fd.set("installments", JSON.stringify(plan.installments));
 
     setSavingEvent(true);
     startTransition(async () => {
@@ -449,7 +468,7 @@ export function KanbanBoard({ leads }: { leads: LeadWithRelations[] }) {
           if (!o && !savingEvent) setEventDialog(null);
         }}
       >
-        <DialogContent className="max-w-md">
+        <DialogContent className="max-w-lg">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <CheckCircle2 className="h-5 w-5 text-success" /> Fechar lead — novo
@@ -495,35 +514,20 @@ export function KanbanBoard({ leads }: { leads: LeadWithRelations[] }) {
                 }
               />
             </Field>
-            <Field label="Entrada paga (R$)" htmlFor="ev_entrada">
-              <Input
-                id="ev_entrada"
-                type="number"
-                step="0.01"
-                min={0}
-                value={eventForm.valor_entrada}
-                onChange={(e) =>
-                  setEventForm((f) => ({ ...f, valor_entrada: e.target.value }))
-                }
-              />
-            </Field>
           </div>
 
-          <div className="flex items-center justify-between rounded-lg bg-muted/40 px-3 py-2 text-sm">
-            <span className="text-muted-foreground">Restante a receber</span>
-            <span className="font-semibold text-warning-foreground">
-              {formatCurrency(
-                Math.max(
-                  (Number(eventForm.valor_total) || 0) -
-                    (Number(eventForm.valor_entrada) || 0),
-                  0,
-                ),
-              )}
-            </span>
-          </div>
+          {/* Forma de pagamento + parcelas */}
+          <PaymentPlanEditor
+            valorTotal={Number(eventForm.valor_total) || 0}
+            dataEvento={eventForm.data_evento}
+            onChange={setPlan}
+            initialMethod="total"
+          />
+
           <p className="text-xs text-muted-foreground">
-            O faturamento entra no mês da data do evento. Após confirmar, o lead
-            sai do funil e vai para o Banco de Clientes.
+            O faturamento entra no mês da data do evento. As parcelas marcadas
+            como pagas viram o valor recebido. Após confirmar, o lead sai do
+            funil e vai para o Banco de Clientes.
           </p>
 
           <DialogFooter>

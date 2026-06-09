@@ -6,6 +6,7 @@ import type {
   LeadInteractionRow,
   FollowupRow,
   EventRow,
+  PaymentInstallmentRow,
   Database,
 } from "./database";
 
@@ -20,6 +21,7 @@ export type Lead = LeadRow;
 export type LeadInteraction = LeadInteractionRow;
 export type Followup = FollowupRow;
 export type EventItem = EventRow;
+export type PaymentInstallment = PaymentInstallmentRow;
 
 // Tipos de Insert/Update (atalhos)
 type Tables = Database["public"]["Tables"];
@@ -32,6 +34,8 @@ export type FollowupUpdate = Tables["followups"]["Update"];
 export type EventInsert = Tables["events"]["Insert"];
 export type EventUpdate = Tables["events"]["Update"];
 export type CompanyInsert = Tables["companies"]["Insert"];
+export type InstallmentInsert = Tables["payment_installments"]["Insert"];
+export type InstallmentUpdate = Tables["payment_installments"]["Update"];
 
 // Tipos compostos (joins comuns)
 export type LeadWithRelations = Lead & {

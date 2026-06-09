@@ -10,7 +10,7 @@ import {
   CreditCard,
   Briefcase,
 } from "lucide-react";
-import { getEventById } from "@/lib/queries/events";
+import { getEventById, getEventInstallments } from "@/lib/queries/events";
 import { PageHeader } from "@/components/page-header";
 import {
   Card,
@@ -23,6 +23,7 @@ import { EventStatusBadge, PaymentStatusBadge } from "@/components/status-badge"
 import { formatCurrency } from "@/lib/utils";
 import { formatDate } from "@/lib/date";
 import { EventActions } from "./event-actions";
+import { InstallmentsList } from "./installments-list";
 
 export const dynamic = "force-dynamic";
 
@@ -54,6 +55,8 @@ export default async function EventoDetailPage({
   const { id } = await params;
   const ev = await getEventById(id);
   if (!ev) notFound();
+
+  const installments = await getEventInstallments(id);
 
   return (
     <div className="space-y-5">
@@ -172,6 +175,20 @@ export default async function EventoDetailPage({
           </CardContent>
         </Card>
       </div>
+
+      {/* Parcelas / cronograma de pagamento */}
+      <Card>
+        <CardHeader>
+          <CardTitle>Parcelas</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <InstallmentsList
+            eventId={ev.id}
+            method={ev.payment_method}
+            installments={installments}
+          />
+        </CardContent>
+      </Card>
     </div>
   );
 }

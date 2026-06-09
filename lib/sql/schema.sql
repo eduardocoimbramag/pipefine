@@ -46,6 +46,10 @@ do $$ begin
   create type payment_status as enum ('aguardando_pagamento', 'entrada_paga', 'pago_integralmente');
 exception when duplicate_object then null; end $$;
 
+do $$ begin
+  create type payment_method as enum ('total', 'entrada_50_50', 'parcelado');
+exception when duplicate_object then null; end $$;
+
 -- -----------------------------------------------------------------------------
 -- FUNÇÃO: trigger de updated_at
 -- -----------------------------------------------------------------------------
@@ -161,12 +165,26 @@ create table if not exists events (
   valor_entrada             numeric(12,2) not null default 0,
   valor_restante            numeric(12,2) not null default 0,
   forma_pagamento           text,
+  payment_method            payment_method,
   status_pagamento          payment_status not null default 'aguardando_pagamento',
   status_evento             event_status not null default 'confirmado',
   observacoes_operacionais  text,
   responsavel_id            uuid references users_profile(id) on delete set null,
   created_at                timestamptz not null default now(),
   updated_at                timestamptz not null default now()
+);
+
+-- PAYMENT_INSTALLMENTS (parcelas) ---------------------------------------------
+create table if not exists payment_installments (
+  id              uuid primary key default gen_random_uuid(),
+  event_id        uuid not null references events(id) on delete cascade,
+  numero          integer not null,
+  data_vencimento date not null,
+  valor           numeric(12,2) not null default 0,
+  pago            boolean not null default false,
+  pago_em         timestamptz,
+  created_at      timestamptz not null default now(),
+  updated_at      timestamptz not null default now()
 );
 
 -- ACTIVITY_LOGS ----------------------------------------------------------------
@@ -202,6 +220,10 @@ create index if not exists idx_events_status_pag    on events(status_pagamento);
 create index if not exists idx_events_status_ev     on events(status_evento);
 create index if not exists idx_events_client        on events(client_id);
 
+create index if not exists idx_installments_event   on payment_installments(event_id);
+create index if not exists idx_installments_venc    on payment_installments(data_vencimento);
+create index if not exists idx_installments_pago    on payment_installments(pago);
+
 -- =============================================================================
 -- TRIGGERS de updated_at
 -- =============================================================================
@@ -227,6 +249,10 @@ create trigger trg_followups_updated   before update on followups
 
 drop trigger if exists trg_events_updated      on events;
 create trigger trg_events_updated      before update on events
+  for each row execute function set_updated_at();
+
+drop trigger if exists trg_installments_updated on payment_installments;
+create trigger trg_installments_updated before update on payment_installments
   for each row execute function set_updated_at();
 
 -- =============================================================================
@@ -263,6 +289,7 @@ alter table lead_interactions enable row level security;
 alter table followups         enable row level security;
 alter table events            enable row level security;
 alter table activity_logs     enable row level security;
+alter table payment_installments enable row level security;
 
 -- Helper macro via DO: cria política "authenticated full access" em cada tabela
 do $$
@@ -270,7 +297,8 @@ declare t text;
 begin
   foreach t in array array[
     'companies','users_profile','clients','leads',
-    'lead_interactions','followups','events','activity_logs'
+    'lead_interactions','followups','events','activity_logs',
+    'payment_installments'
   ]
   loop
     execute format('drop policy if exists "auth_select_%1$s" on %1$s;', t);

@@ -5,13 +5,37 @@ import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { requireUser } from "@/lib/auth";
 import { deletePendingFollowups } from "@/lib/followups";
+import {
+  replaceInstallments,
+  recalcEventFromInstallments,
+} from "@/lib/installments.server";
+import type { GeneratedInstallment } from "@/lib/installments";
 import { emptyToNull, toNumberOrNull } from "@/lib/utils";
 import type {
   ActionResult,
   EventInsert,
   EventStatus,
   PaymentStatus,
+  PaymentMethod,
 } from "@/types";
+
+/** Lê e valida o array de parcelas vindo do formulário (campo JSON). */
+function parseInstallments(raw: FormDataEntryValue | null): GeneratedInstallment[] {
+  if (!raw) return [];
+  try {
+    const arr = JSON.parse(String(raw));
+    if (!Array.isArray(arr)) return [];
+    return arr
+      .map((i, idx) => ({
+        numero: Number(i.numero) || idx + 1,
+        data_vencimento: String(i.data_vencimento ?? ""),
+        valor: Number(i.valor) || 0,
+      }))
+      .filter((i) => i.data_vencimento.length > 0);
+  } catch {
+    return [];
+  }
+}
 
 function parseEventForm(formData: FormData) {
   const total = toNumberOrNull(formData.get("valor_total")) ?? 0;
@@ -31,6 +55,9 @@ function parseEventForm(formData: FormData) {
     valor_entrada: entrada,
     valor_restante: Math.max(total - entrada, 0),
     forma_pagamento: emptyToNull(formData.get("forma_pagamento")),
+    payment_method:
+      (emptyToNull(formData.get("payment_method")) as PaymentMethod | null) ??
+      null,
     status_pagamento: String(
       formData.get("status_pagamento") ?? "aguardando_pagamento",
     ) as PaymentStatus,
@@ -78,16 +105,13 @@ export async function closeLeadAsEvent(
     const dataEvento = String(formData.get("data_evento") ?? "");
     const local = emptyToNull(formData.get("local_evento"));
     const total = toNumberOrNull(formData.get("valor_total")) ?? 0;
-    const entrada = toNumberOrNull(formData.get("valor_entrada")) ?? 0;
+    const paymentMethod =
+      (emptyToNull(formData.get("payment_method")) as PaymentMethod | null) ??
+      null;
+    const installments = parseInstallments(formData.get("installments"));
 
     if (!dataEvento) {
       return { ok: false, error: "Informe a data do evento." };
-    }
-    if (entrada > total) {
-      return {
-        ok: false,
-        error: "A entrada não pode ser maior que o valor total.",
-      };
     }
 
     const { data: lead } = await supabase
@@ -126,19 +150,21 @@ export async function closeLeadAsEvent(
         local_evento: local ?? lead.local_evento,
         quantidade_pessoas: lead.quantidade_pessoas,
         valor_total: total,
-        valor_entrada: entrada,
-        valor_restante: Math.max(total - entrada, 0),
+        valor_entrada: 0,
+        valor_restante: total,
+        payment_method: paymentMethod,
         responsavel_id: lead.responsavel_id,
         status_evento: "confirmado",
-        status_pagamento: derivePaymentStatus(
-          total,
-          entrada,
-          "aguardando_pagamento",
-        ),
+        status_pagamento: "aguardando_pagamento",
       })
       .select("id")
       .single();
     if (evError) throw evError;
+
+    // Salva as parcelas e recalcula recebido/restante/status a partir delas.
+    if (installments.length > 0) {
+      await replaceInstallments(novoEvento!.id, installments);
+    }
 
     // Fecha o lead (some do Kanban) e vincula o cliente criado.
     await supabase
@@ -180,6 +206,8 @@ export async function createEvent(
     if (!payload.data_evento)
       return { ok: false, error: "Informe a data do evento." };
 
+    const installments = parseInstallments(formData.get("installments"));
+
     payload.status_pagamento = derivePaymentStatus(
       payload.valor_total,
       payload.valor_entrada,
@@ -192,6 +220,11 @@ export async function createEvent(
       .select("id")
       .single();
     if (error) throw error;
+
+    // Com parcelas: elas definem recebido/restante/status.
+    if (installments.length > 0) {
+      await replaceInstallments(data.id, installments);
+    }
 
     revalidatePath("/eventos");
     revalidatePath("/financeiro");
@@ -215,6 +248,9 @@ export async function updateEvent(
     if (!payload.data_evento)
       return { ok: false, error: "Informe a data do evento." };
 
+    const installments = parseInstallments(formData.get("installments"));
+    const temParcelas = formData.get("installments") !== null;
+
     payload.status_pagamento = derivePaymentStatus(
       payload.valor_total,
       payload.valor_entrada,
@@ -226,6 +262,11 @@ export async function updateEvent(
       .update(payload)
       .eq("id", id);
     if (error) throw error;
+
+    // Se o formulário enviou parcelas, substitui o cronograma e recalcula.
+    if (temParcelas) {
+      await replaceInstallments(id, installments);
+    }
 
     revalidatePath("/eventos");
     revalidatePath(`/eventos/${id}`);
@@ -327,6 +368,52 @@ export async function convertLeadToEvent(leadId: string): Promise<void> {
   redirect("/eventos");
 }
 
+/** Marca uma parcela como paga/pendente e recalcula os totais do evento. */
+export async function toggleInstallmentPaid(
+  installmentId: string,
+  eventId: string,
+  pago: boolean,
+): Promise<ActionResult> {
+  try {
+    await requireUser();
+    const supabase = await createClient();
+    const { error } = await supabase
+      .from("payment_installments")
+      .update({ pago, pago_em: pago ? new Date().toISOString() : null })
+      .eq("id", installmentId);
+    if (error) throw error;
+
+    await recalcEventFromInstallments(eventId);
+
+    revalidatePath(`/eventos/${eventId}`);
+    revalidatePath("/eventos");
+    revalidatePath("/financeiro");
+    revalidatePath("/dashboard");
+    return {
+      ok: true,
+      message: pago ? "Parcela marcada como paga." : "Parcela reaberta.",
+    };
+  } catch (e) {
+    return { ok: false, error: errMsg(e) };
+  }
+}
+
 function errMsg(e: unknown): string {
-  return e instanceof Error ? e.message : "Ocorreu um erro inesperado.";
+  // Erros do Supabase/PostgREST são objetos com code/message (não Error).
+  const obj = e as { code?: string; message?: string } | null;
+  const code = obj?.code;
+
+  // Migração de parcelas ainda não aplicada no banco.
+  if (
+    code === "PGRST205" || // tabela não encontrada no schema cache
+    code === "42P01" || // tabela inexistente
+    code === "42703" || // coluna inexistente
+    code === "42704" // tipo (enum) inexistente
+  ) {
+    return "O recurso de parcelas ainda não foi ativado no banco. Rode a migração lib/sql/migrations/002_payment_installments.sql no Supabase.";
+  }
+
+  if (e instanceof Error) return e.message;
+  if (obj?.message) return obj.message;
+  return "Ocorreu um erro inesperado.";
 }
