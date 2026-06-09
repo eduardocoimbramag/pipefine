@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { requireUser } from "@/lib/auth";
+import { deletePendingFollowups } from "@/lib/followups";
 import { emptyToNull, toNumberOrNull } from "@/lib/utils";
 import type {
   ActionResult,
@@ -145,10 +146,14 @@ export async function closeLeadAsEvent(
       .update({ status: "fechado", client_id: clientId })
       .eq("id", leadId);
 
+    // Lead saiu do funil → remove follow-ups pendentes.
+    await deletePendingFollowups(leadId);
+
     revalidatePath("/leads");
     revalidatePath("/eventos");
     revalidatePath("/financeiro");
     revalidatePath("/clientes");
+    revalidatePath("/followups");
     revalidatePath("/dashboard");
 
     return {
@@ -310,8 +315,12 @@ export async function convertLeadToEvent(leadId: string): Promise<void> {
   // Atualiza o lead para fechado
   await supabase.from("leads").update({ status: "fechado" }).eq("id", leadId);
 
+  // Lead saiu do funil → remove follow-ups pendentes.
+  await deletePendingFollowups(leadId);
+
   revalidatePath("/leads");
   revalidatePath("/eventos");
+  revalidatePath("/followups");
   revalidatePath("/dashboard");
 
   if (novoEvento?.id) redirect(`/eventos/${novoEvento.id}/editar`);

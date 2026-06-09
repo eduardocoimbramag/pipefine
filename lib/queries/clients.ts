@@ -5,18 +5,83 @@ import type {
   EventWithRelations,
 } from "@/types";
 
-/** Lista clientes com busca opcional. */
-export async function getClients(search?: string): Promise<Client[]> {
+/** Cliente enriquecido com os tipos de evento que realizou/buscou. */
+export interface ClientWithTipos extends Client {
+  tiposEvento: string[];
+}
+
+interface ClientRowEmbed extends Client {
+  leads: { company_id: string; tipo_evento: string | null }[] | null;
+  events: { company_id: string; tipo_evento: string | null }[] | null;
+}
+
+/**
+ * Lista clientes com busca opcional, filtrados pela empresa em foco.
+ *
+ * Clientes não têm company_id próprio — a empresa vem dos leads/eventos
+ * vinculados. Com `companyId`, retorna apenas clientes que tenham pelo menos
+ * 1 lead ou evento naquela empresa. Sem `companyId` (Todas as empresas),
+ * retorna todos.
+ *
+ * Também agrega os tipos de evento (de leads e eventos) para exibir na lista.
+ */
+export async function getClients(
+  companyId?: string,
+  search?: string,
+): Promise<ClientWithTipos[]> {
   const supabase = await createClient();
-  let query = supabase.from("clients").select("*").order("name");
+
+  let query = supabase
+    .from("clients")
+    .select(
+      `*,
+       leads ( company_id, tipo_evento ),
+       events ( company_id, tipo_evento )`,
+    )
+    .order("name");
+
   if (search) {
     const s = search.replace(/[%,]/g, "");
     query = query.or(
       `name.ilike.%${s}%,phone.ilike.%${s}%,instagram.ilike.%${s}%,email.ilike.%${s}%`,
     );
   }
+
   const { data } = await query;
-  return data ?? [];
+  const rows = (data ?? []) as unknown as ClientRowEmbed[];
+
+  const result: ClientWithTipos[] = [];
+  for (const row of rows) {
+    const leads = row.leads ?? [];
+    const events = row.events ?? [];
+
+    // Filtro por empresa: precisa de vínculo (lead OU evento) na empresa.
+    if (companyId) {
+      const temVinculo =
+        leads.some((l) => l.company_id === companyId) ||
+        events.some((e) => e.company_id === companyId);
+      if (!temVinculo) continue;
+    }
+
+    // Tipos de evento (de leads e eventos), considerando o filtro de empresa.
+    const tipos = new Set<string>();
+    for (const l of leads) {
+      if (companyId && l.company_id !== companyId) continue;
+      if (l.tipo_evento) tipos.add(l.tipo_evento);
+    }
+    for (const e of events) {
+      if (companyId && e.company_id !== companyId) continue;
+      if (e.tipo_evento) tipos.add(e.tipo_evento);
+    }
+
+    // Remove os campos embutidos antes de devolver o cliente.
+    const { leads: _l, events: _e, ...client } = row;
+    void _l;
+    void _e;
+    result.push({ ...(client as Client), tiposEvento: Array.from(tipos) });
+  }
+
+  return result;
 }
 
 export interface ClientDetail {

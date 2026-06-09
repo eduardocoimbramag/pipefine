@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { Contact } from "lucide-react";
 import { getClients } from "@/lib/queries/clients";
+import { getActiveCompanyContext } from "@/lib/active-company";
 import { PageHeader } from "@/components/page-header";
 import { EmptyState } from "@/components/empty-state";
 import { Card } from "@/components/ui/card";
@@ -15,7 +16,7 @@ import {
 import { ClientDialog } from "./client-dialog";
 import { ClientSearch } from "./client-search";
 
-export const metadata = { title: "Clientes — Pipefine" };
+export const metadata = { title: "Banco de Clientes — Pipefine" };
 export const dynamic = "force-dynamic";
 
 export default async function ClientesPage({
@@ -24,13 +25,14 @@ export default async function ClientesPage({
   searchParams: Promise<{ q?: string }>;
 }) {
   const sp = await searchParams;
-  const clients = await getClients(sp.q);
+  const { activeCompanyId, activeCompany } = await getActiveCompanyContext();
+  const clients = await getClients(activeCompanyId ?? undefined, sp.q);
 
   return (
     <div className="space-y-5">
       <PageHeader
-        title="Clientes"
-        description={`${clients.length} cliente(s) cadastrado(s)`}
+        title="Banco de Clientes"
+        description={`${activeCompany ? activeCompany.name + " · " : ""}${clients.length} cliente(s)`}
       >
         <ClientDialog />
       </PageHeader>
@@ -41,7 +43,7 @@ export default async function ClientesPage({
         <EmptyState
           icon={Contact}
           title="Nenhum cliente"
-          description="Clientes são criados automaticamente ao converter um lead em evento, ou manualmente aqui."
+          description="Clientes são criados automaticamente ao fechar um lead em evento, ou manualmente aqui."
         >
           <ClientDialog />
         </EmptyState>
@@ -52,8 +54,7 @@ export default async function ClientesPage({
               <TableRow>
                 <TableHead>Nome</TableHead>
                 <TableHead className="hidden sm:table-cell">Telefone</TableHead>
-                <TableHead className="hidden md:table-cell">Instagram</TableHead>
-                <TableHead className="hidden lg:table-cell">E-mail</TableHead>
+                <TableHead>Tipo de evento</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -70,11 +71,12 @@ export default async function ClientesPage({
                   <TableCell className="hidden sm:table-cell text-sm text-muted-foreground">
                     {c.phone ?? "—"}
                   </TableCell>
-                  <TableCell className="hidden md:table-cell text-sm text-muted-foreground">
-                    {c.instagram ?? "—"}
-                  </TableCell>
-                  <TableCell className="hidden lg:table-cell text-sm text-muted-foreground">
-                    {c.email ?? "—"}
+                  <TableCell className="text-sm">
+                    {c.tiposEvento.length > 0 ? (
+                      c.tiposEvento.join(" / ")
+                    ) : (
+                      <span className="text-muted-foreground">—</span>
+                    )}
                   </TableCell>
                 </TableRow>
               ))}

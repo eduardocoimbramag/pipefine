@@ -56,3 +56,21 @@ export async function upsertFollowupForLead(
     });
   }
 }
+
+/**
+ * Remove os follow-ups PENDENTES de um lead.
+ *
+ * Chamado quando o lead sai do funil (fechado ou perdido): como ele não precisa
+ * mais de acompanhamento, os follow-ups pendentes são apagados para não
+ * continuarem aparecendo nas listas de hoje/atrasados/pendentes.
+ *
+ * Deve ser chamado de dentro de um Server Action (usa o client de servidor).
+ */
+export async function deletePendingFollowups(leadId: string): Promise<void> {
+  const supabase = await createClient();
+  await supabase
+    .from("followups")
+    .delete()
+    .eq("lead_id", leadId)
+    .eq("status", "pendente");
+}

@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { requireUser } from "@/lib/auth";
-import { upsertFollowupForLead } from "@/lib/followups";
+import { upsertFollowupForLead, deletePendingFollowups } from "@/lib/followups";
 import { addDaysISO } from "@/lib/date";
 import { emptyToNull, toNumberOrNull } from "@/lib/utils";
 import { LEAD_STATUS_LABELS } from "@/types";
@@ -93,14 +93,20 @@ export async function updateLead(
       .eq("id", id);
     if (error) throw error;
 
-    await maybeCreateFollowupOnOrcamento(
-      id,
-      before?.status ?? null,
-      payload.status,
-    );
+    if (payload.status === "fechado" || payload.status === "perdido") {
+      // Lead saiu do funil → remove follow-ups pendentes.
+      await deletePendingFollowups(id);
+    } else {
+      await maybeCreateFollowupOnOrcamento(
+        id,
+        before?.status ?? null,
+        payload.status,
+      );
+    }
 
     revalidatePath("/leads");
     revalidatePath(`/leads/${id}`);
+    revalidatePath("/followups");
     revalidatePath("/dashboard");
     return { ok: true, message: "Lead atualizado." };
   } catch (e) {
@@ -153,7 +159,10 @@ export async function updateLeadStatus(
     const { error } = await supabase.from("leads").update(patch).eq("id", id);
     if (error) throw error;
 
-    if (vencimento) {
+    if (status === "fechado" || status === "perdido") {
+      // Lead saiu do funil → remove follow-ups pendentes.
+      await deletePendingFollowups(id);
+    } else if (vencimento) {
       // Regra: 1 follow-up ativo por lead — atualiza o pendente se já existir.
       await upsertFollowupForLead(id, {
         titulo: `Follow-up — ${before?.nome_cliente ?? "cliente"}`,
