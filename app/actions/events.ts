@@ -8,12 +8,15 @@ import { deletePendingFollowups } from "@/lib/followups";
 import {
   replaceInstallments,
   recalcEventFromInstallments,
+  paymentFeatureAvailable,
+  isMissingPaymentFeatureError,
 } from "@/lib/installments.server";
 import type { GeneratedInstallment } from "@/lib/installments";
 import { emptyToNull, toNumberOrNull } from "@/lib/utils";
 import type {
   ActionResult,
   EventInsert,
+  EventUpdate,
   EventStatus,
   PaymentStatus,
   PaymentMethod,
@@ -137,32 +140,38 @@ export async function closeLeadAsEvent(
       clientId = client?.id ?? null;
     }
 
+    // O recurso de parcelas só é usado se a migração 002 estiver aplicada.
+    const featureOk = await paymentFeatureAvailable();
+
     // Cria o evento (entra na aba Eventos e no Financeiro pelo mês da data).
+    const eventPayload: EventInsert = {
+      company_id: lead.company_id,
+      lead_id: lead.id,
+      client_id: clientId,
+      nome_cliente: lead.nome_cliente,
+      tipo_evento: lead.tipo_evento,
+      data_evento: dataEvento,
+      local_evento: local ?? lead.local_evento,
+      quantidade_pessoas: lead.quantidade_pessoas,
+      valor_total: total,
+      valor_entrada: 0,
+      valor_restante: total,
+      // payment_method só quando o recurso existe (migração 002 aplicada).
+      ...(featureOk ? { payment_method: paymentMethod } : {}),
+      responsavel_id: lead.responsavel_id,
+      status_evento: "confirmado",
+      status_pagamento: "aguardando_pagamento",
+    };
+
     const { data: novoEvento, error: evError } = await supabase
       .from("events")
-      .insert({
-        company_id: lead.company_id,
-        lead_id: lead.id,
-        client_id: clientId,
-        nome_cliente: lead.nome_cliente,
-        tipo_evento: lead.tipo_evento,
-        data_evento: dataEvento,
-        local_evento: local ?? lead.local_evento,
-        quantidade_pessoas: lead.quantidade_pessoas,
-        valor_total: total,
-        valor_entrada: 0,
-        valor_restante: total,
-        payment_method: paymentMethod,
-        responsavel_id: lead.responsavel_id,
-        status_evento: "confirmado",
-        status_pagamento: "aguardando_pagamento",
-      })
+      .insert(eventPayload)
       .select("id")
       .single();
     if (evError) throw evError;
 
     // Salva as parcelas e recalcula recebido/restante/status a partir delas.
-    if (installments.length > 0) {
+    if (featureOk && installments.length > 0) {
       await replaceInstallments(novoEvento!.id, installments);
     }
 
@@ -207,6 +216,7 @@ export async function createEvent(
       return { ok: false, error: "Informe a data do evento." };
 
     const installments = parseInstallments(formData.get("installments"));
+    const featureOk = await paymentFeatureAvailable();
 
     payload.status_pagamento = derivePaymentStatus(
       payload.valor_total,
@@ -214,15 +224,20 @@ export async function createEvent(
       payload.status_pagamento,
     );
 
+    // Sem o recurso de parcelas (migração 002 não aplicada), não enviamos a
+    // coluna payment_method (que não existe) — o evento é criado normalmente.
+    const insertPayload: EventInsert = { ...payload };
+    if (!featureOk) delete insertPayload.payment_method;
+
     const { data, error } = await supabase
       .from("events")
-      .insert(payload as EventInsert)
+      .insert(insertPayload)
       .select("id")
       .single();
     if (error) throw error;
 
     // Com parcelas: elas definem recebido/restante/status.
-    if (installments.length > 0) {
+    if (featureOk && installments.length > 0) {
       await replaceInstallments(data.id, installments);
     }
 
@@ -250,6 +265,7 @@ export async function updateEvent(
 
     const installments = parseInstallments(formData.get("installments"));
     const temParcelas = formData.get("installments") !== null;
+    const featureOk = await paymentFeatureAvailable();
 
     payload.status_pagamento = derivePaymentStatus(
       payload.valor_total,
@@ -257,14 +273,18 @@ export async function updateEvent(
       payload.status_pagamento,
     );
 
+    // Sem o recurso de parcelas, não enviamos a coluna payment_method.
+    const updatePayload: EventUpdate = { ...payload };
+    if (!featureOk) delete updatePayload.payment_method;
+
     const { error } = await supabase
       .from("events")
-      .update(payload)
+      .update(updatePayload)
       .eq("id", id);
     if (error) throw error;
 
-    // Se o formulário enviou parcelas, substitui o cronograma e recalcula.
-    if (temParcelas) {
+    // Se o formulário enviou parcelas e o recurso existe, substitui o cronograma.
+    if (featureOk && temParcelas) {
       await replaceInstallments(id, installments);
     }
 
@@ -399,20 +419,13 @@ export async function toggleInstallmentPaid(
 }
 
 function errMsg(e: unknown): string {
-  // Erros do Supabase/PostgREST são objetos com code/message (não Error).
-  const obj = e as { code?: string; message?: string } | null;
-  const code = obj?.code;
-
-  // Migração de parcelas ainda não aplicada no banco.
-  if (
-    code === "PGRST205" || // tabela não encontrada no schema cache
-    code === "42P01" || // tabela inexistente
-    code === "42703" || // coluna inexistente
-    code === "42704" // tipo (enum) inexistente
-  ) {
+  // Migração de parcelas ainda não aplicada no banco (tabela/coluna/enum ausentes).
+  if (isMissingPaymentFeatureError(e)) {
     return "O recurso de parcelas ainda não foi ativado no banco. Rode a migração lib/sql/migrations/002_payment_installments.sql no Supabase.";
   }
 
+  // Erros do Supabase/PostgREST são objetos com message (não Error).
+  const obj = e as { message?: string } | null;
   if (e instanceof Error) return e.message;
   if (obj?.message) return obj.message;
   return "Ocorreu um erro inesperado.";

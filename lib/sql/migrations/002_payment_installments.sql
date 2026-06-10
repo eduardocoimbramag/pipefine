@@ -11,6 +11,15 @@
 --   - RLS, índices e trigger de updated_at
 -- =============================================================================
 
+-- FUNÇÃO de updated_at (cria se não existir, para a migração ser autossuficiente)
+create or replace function set_updated_at()
+returns trigger as $$
+begin
+  new.updated_at = now();
+  return new;
+end;
+$$ language plpgsql;
+
 -- ENUM: forma de pagamento ----------------------------------------------------
 do $$ begin
   create type payment_method as enum ('total', 'entrada_50_50', 'parcelado');
@@ -37,6 +46,10 @@ create table if not exists payment_installments (
 create index if not exists idx_installments_event on payment_installments(event_id);
 create index if not exists idx_installments_venc  on payment_installments(data_vencimento);
 create index if not exists idx_installments_pago  on payment_installments(pago);
+
+-- Unicidade de (event_id, numero) — o app pressupõe 1 parcela por número/evento.
+create unique index if not exists uq_installments_event_numero
+  on payment_installments(event_id, numero);
 
 -- Trigger de updated_at (reaproveita a função set_updated_at já existente)
 drop trigger if exists trg_installments_updated on payment_installments;

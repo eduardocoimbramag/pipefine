@@ -223,6 +223,8 @@ create index if not exists idx_events_client        on events(client_id);
 create index if not exists idx_installments_event   on payment_installments(event_id);
 create index if not exists idx_installments_venc    on payment_installments(data_vencimento);
 create index if not exists idx_installments_pago    on payment_installments(pago);
+create unique index if not exists uq_installments_event_numero
+  on payment_installments(event_id, numero);
 
 -- =============================================================================
 -- TRIGGERS de updated_at
