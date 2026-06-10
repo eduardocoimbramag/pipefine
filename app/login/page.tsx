@@ -1,4 +1,3 @@
-import Link from "next/link";
 import { Logo } from "@/components/logo";
 import { LoginForm } from "./login-form";
 import { LoginHero } from "./login-hero";
@@ -23,20 +22,12 @@ export default async function LoginPage({
           <div className="flex items-center justify-center text-foreground lg:hidden">
             <Logo className="h-12 w-auto" />
           </div>
-          <div className="space-y-1 text-center lg:text-left">
+          <div className="text-center lg:text-left">
             <h2 className="font-serif text-3xl font-semibold tracking-tight">
-              Bem-vindo(a) de volta
+              Seja bem-vindo(a)
             </h2>
-            <p className="text-sm text-muted-foreground">
-              Entre com sua conta para acessar o painel.
-            </p>
           </div>
           <LoginForm redirectTo={redirectTo ?? "/dashboard"} />
-          <p className="text-center text-xs text-muted-foreground">
-            <Link href="/" className="hover:underline">
-              Pipefine — sistema interno
-            </Link>
-          </p>
         </div>
       </div>
     </div>
