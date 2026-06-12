@@ -185,6 +185,7 @@ export async function closeLeadAsEvent(
     await deletePendingFollowups(leadId);
 
     revalidatePath("/leads");
+    revalidatePath(`/leads/${leadId}`);
     revalidatePath("/eventos");
     revalidatePath("/financeiro");
     revalidatePath("/clientes");
@@ -352,7 +353,7 @@ export async function convertLeadToEvent(leadId: string): Promise<void> {
   }
 
   // Cria o evento
-  const { data: novoEvento } = await supabase
+  const { data: novoEvento, error: evError } = await supabase
     .from("events")
     .insert({
       company_id: lead.company_id,
@@ -372,20 +373,27 @@ export async function convertLeadToEvent(leadId: string): Promise<void> {
     })
     .select("id")
     .single();
+  // Se o evento NÃO foi criado, aborta ANTES de fechar o lead e apagar
+  // follow-ups — senão o lead sairia do funil sem evento correspondente.
+  if (evError || !novoEvento) throw evError ?? new Error("Falha ao criar o evento.");
 
   // Atualiza o lead para fechado
-  await supabase.from("leads").update({ status: "fechado" }).eq("id", leadId);
+  const { error: leadErr } = await supabase
+    .from("leads")
+    .update({ status: "fechado" })
+    .eq("id", leadId);
+  if (leadErr) throw leadErr;
 
   // Lead saiu do funil → remove follow-ups pendentes.
   await deletePendingFollowups(leadId);
 
   revalidatePath("/leads");
+  revalidatePath(`/leads/${leadId}`);
   revalidatePath("/eventos");
   revalidatePath("/followups");
   revalidatePath("/dashboard");
 
-  if (novoEvento?.id) redirect(`/eventos/${novoEvento.id}/editar`);
-  redirect("/eventos");
+  redirect(`/eventos/${novoEvento.id}/editar`);
 }
 
 /** Marca uma parcela como paga/pendente e recalcula os totais do evento. */

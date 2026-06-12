@@ -34,7 +34,8 @@ function parseLeadForm(formData: FormData) {
     responsavel_id: emptyToNull(formData.get("responsavel_id")),
     data_primeiro_contato: emptyToNull(formData.get("data_primeiro_contato")),
     data_orcamento_enviado: emptyToNull(formData.get("data_orcamento_enviado")),
-    data_proximo_followup: emptyToNull(formData.get("data_proximo_followup")),
+    // data_proximo_followup NÃO entra aqui: é um campo DERIVADO, sincronizado
+    // automaticamente a partir do follow-up pendente (syncLeadNextFollowup).
     observacoes: emptyToNull(formData.get("observacoes")),
     motivo_perda: emptyToNull(formData.get("motivo_perda")),
   };
@@ -118,15 +119,16 @@ export async function updateLead(
  * Altera apenas o status (usado em ações rápidas e no Kanban).
  *
  * @param motivoPerda  Motivo, quando o status for "perdido".
- * @param followupDays Quando informado (> 0), cria um follow-up vencendo em N
- *                     dias e atualiza a data do próximo follow-up do lead.
- *                     Usado pelo Kanban ao mover o card.
+ * @param followupDate Quando informado (yyyy-MM-dd), agenda um follow-up para
+ *                     essa data. Usado pelo Kanban ao mover o card.
+ *                     A data do lead (data_proximo_followup) é sincronizada
+ *                     automaticamente pelo upsert.
  */
 export async function updateLeadStatus(
   id: string,
   status: LeadStatus,
   motivoPerda?: string | null,
-  followupDays?: number | null,
+  followupDate?: string | null,
 ): Promise<ActionResult> {
   try {
     await requireUser();
@@ -146,15 +148,11 @@ export async function updateLeadStatus(
       patch.motivo_perda = motivoPerda?.trim() || null;
     }
 
-    // Follow-up solicitado ao mover no Kanban.
-    const dias =
-      followupDays !== null && followupDays !== undefined && followupDays > 0
-        ? Math.round(followupDays)
+    // Follow-up solicitado ao mover no Kanban (data específica).
+    const vencimento =
+      followupDate && /^\d{4}-\d{2}-\d{2}$/.test(followupDate)
+        ? followupDate
         : null;
-    const vencimento = dias ? addDaysISO(dias) : null;
-    if (vencimento) {
-      patch.data_proximo_followup = vencimento;
-    }
 
     const { error } = await supabase.from("leads").update(patch).eq("id", id);
     if (error) throw error;

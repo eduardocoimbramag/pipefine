@@ -205,11 +205,7 @@ export function LeadForm({
         name="valor_estimado"
         defaultValue={lead?.valor_estimado ?? ""}
       />
-      <input
-        type="hidden"
-        name="data_proximo_followup"
-        defaultValue={lead?.data_proximo_followup ?? ""}
-      />
+      {/* data_proximo_followup não é enviado: é derivado dos follow-ups. */}
       <input
         type="hidden"
         name="observacoes"

@@ -5,7 +5,6 @@ import { useRouter } from "next/navigation";
 import { CalendarClock, XCircle, Loader2, MoreVertical } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import {
   Dialog,
   DialogContent,
@@ -19,7 +18,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { Field } from "@/components/form/field";
+import { FollowupDuePicker } from "@/components/followup-due-picker";
 import { rescheduleFollowup, cancelFollowup } from "@/app/actions/followups";
 import { addDaysISO } from "@/lib/date";
 
@@ -69,7 +68,13 @@ export function FollowupItemActions({
           </Button>
         </DropdownMenuTrigger>
         <DropdownMenuContent align="end">
-          <DropdownMenuItem onSelect={() => setReschedule(true)}>
+          <DropdownMenuItem
+            onSelect={() => {
+              // Parte sempre da data atual do follow-up.
+              setNovaData(data || addDaysISO(2));
+              setReschedule(true);
+            }}
+          >
             <CalendarClock className="h-4 w-4" /> Reagendar
           </DropdownMenuItem>
           <DropdownMenuItem
@@ -86,14 +91,12 @@ export function FollowupItemActions({
           <DialogHeader>
             <DialogTitle>Reagendar follow-up</DialogTitle>
           </DialogHeader>
-          <Field label="Nova data" htmlFor="nova_data">
-            <Input
-              id="nova_data"
-              type="date"
-              value={novaData}
-              onChange={(e) => setNovaData(e.target.value)}
-            />
-          </Field>
+          <FollowupDuePicker
+            value={novaData}
+            onChange={setNovaData}
+            label="Nova data"
+            id="nova_data"
+          />
           <DialogFooter>
             <Button
               variant="outline"

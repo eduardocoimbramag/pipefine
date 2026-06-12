@@ -41,11 +41,12 @@ import {
   PaymentPlanEditor,
   type PaymentPlanValue,
 } from "@/components/payment-plan-editor";
+import { FollowupDuePicker } from "@/components/followup-due-picker";
 import { updateLeadStatus } from "@/app/actions/leads";
 import { closeLeadAsEvent } from "@/app/actions/events";
 import { generateInstallments } from "@/lib/installments";
 import { formatCurrency, cn } from "@/lib/utils";
-import { formatDate, isOverdue, todayISO } from "@/lib/date";
+import { formatDate, isOverdue, todayISO, addDaysISO } from "@/lib/date";
 import {
   KANBAN_COLUMNS,
   KANBAN_LOST_COLUMN,
@@ -88,8 +89,7 @@ export function KanbanBoard({ leads }: { leads: LeadWithRelations[] }) {
     lead: LeadWithRelations;
     toColumn: string;
   } | null>(null);
-  const [followupDays, setFollowupDays] = useState("2");
-  const [savingFollowup, setSavingFollowup] = useState(false);
+  const [followupDate, setFollowupDate] = useState("");
 
   // Pop-up de marcação de evento ao mover para "Fechado"
   const [eventDialog, setEventDialog] = useState<{
@@ -106,9 +106,13 @@ export function KanbanBoard({ leads }: { leads: LeadWithRelations[] }) {
   });
   const [savingEvent, setSavingEvent] = useState(false);
 
-  // Re-sincroniza quando os dados do servidor mudam
+  // Re-sincroniza quando os dados do servidor mudam (inclui a data do
+  // follow-up para o card refletir reagendamentos sem mudança de status).
   const leadsKey = useMemo(
-    () => leads.map((l) => `${l.id}:${l.status}`).join("|"),
+    () =>
+      leads
+        .map((l) => `${l.id}:${l.status}:${l.data_proximo_followup ?? ""}`)
+        .join("|"),
     [leads],
   );
   const [lastKey, setLastKey] = useState(leadsKey);
@@ -139,19 +143,19 @@ export function KanbanBoard({ leads }: { leads: LeadWithRelations[] }) {
   function persistStatus(
     leadId: string,
     status: LeadStatus,
-    opts?: { motivoPerda?: string; followupDays?: number },
+    opts?: { motivoPerda?: string; followupDate?: string },
   ) {
     startTransition(async () => {
       const res = await updateLeadStatus(
         leadId,
         status,
         opts?.motivoPerda,
-        opts?.followupDays ?? null,
+        opts?.followupDate ?? null,
       );
       if (res.ok) {
-        if (opts?.followupDays)
+        if (opts?.followupDate)
           toast.success(
-            `Status atualizado. Follow-up criado em ${opts.followupDays} dia(s).`,
+            `Status atualizado. Follow-up agendado para ${formatDate(opts.followupDate)}.`,
           );
         else if (status === "orcamento_enviado")
           toast.success("Status atualizado. Follow-up criado em 2 dias.");
@@ -220,8 +224,8 @@ export function KanbanBoard({ leads }: { leads: LeadWithRelations[] }) {
     // Move otimista (demais colunas)
     moveCardInState(leadId, fromColumn, toColumn);
 
-    // Pergunta o follow-up (com opção de pular).
-    setFollowupDays("2");
+    // Pergunta o follow-up (com opção de pular). Sugestão: +2 dias.
+    setFollowupDate(addDaysISO(2));
     setFollowupDialog({ lead, toColumn });
   }
 
@@ -254,19 +258,18 @@ export function KanbanBoard({ leads }: { leads: LeadWithRelations[] }) {
     if (!followupDialog) return;
     const { lead, toColumn } = followupDialog;
     const status = COLUMN_DEFAULT_STATUS[toColumn];
-    const dias = Number(followupDays);
 
-    if (withFollowup && (!Number.isFinite(dias) || dias <= 0)) {
-      toast.error("Informe um número de dias válido.");
+    if (withFollowup && !followupDate) {
+      toast.error("Escolha a data do follow-up.");
       return;
     }
 
-    setSavingFollowup(true);
-    persistStatus(lead.id, status, {
-      followupDays: withFollowup ? Math.round(dias) : undefined,
-    });
-    setSavingFollowup(false);
+    // Fecha o diálogo na hora (salvamento otimista em segundo plano); o guard
+    // `if (!followupDialog) return` acima evita disparo duplicado.
     setFollowupDialog(null);
+    persistStatus(lead.id, status, {
+      followupDate: withFollowup ? followupDate : undefined,
+    });
   }
 
   function moveCardInState(leadId: string, from: string, to: string) {
@@ -395,11 +398,11 @@ export function KanbanBoard({ leads }: { leads: LeadWithRelations[] }) {
         </DialogContent>
       </Dialog>
 
-      {/* Diálogo: Follow-up em quantos dias? (ao mover o card) */}
+      {/* Diálogo: agendar follow-up ao mover o card */}
       <Dialog
         open={!!followupDialog}
         onOpenChange={(o) => {
-          if (!o && !savingFollowup) {
+          if (!o) {
             // Fechar pelo X/ESC = pular (mantém o status já alterado de forma otimista)
             confirmFollowup(false);
           }
@@ -408,53 +411,26 @@ export function KanbanBoard({ leads }: { leads: LeadWithRelations[] }) {
         <DialogContent className="max-w-sm">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
-              <CalendarClock className="h-5 w-5 text-primary" /> Follow-up em
-              quantos dias?
+              <CalendarClock className="h-5 w-5 text-primary" /> Agendar
+              follow-up
             </DialogTitle>
           </DialogHeader>
           <p className="text-sm text-muted-foreground">
             {followupDialog?.lead.nome_cliente}
           </p>
 
-          <div className="flex gap-2">
-            {[1, 2, 3, 7].map((d) => (
-              <Button
-                key={d}
-                type="button"
-                variant={followupDays === String(d) ? "default" : "outline"}
-                size="sm"
-                className="flex-1"
-                onClick={() => setFollowupDays(String(d))}
-              >
-                {d}d
-              </Button>
-            ))}
-          </div>
-
-          <Field label="Dias" htmlFor="followup_days">
-            <Input
-              id="followup_days"
-              type="number"
-              min={1}
-              value={followupDays}
-              onChange={(e) => setFollowupDays(e.target.value)}
-              autoFocus
-            />
-          </Field>
+          <FollowupDuePicker
+            value={followupDate}
+            onChange={setFollowupDate}
+            label="Data do follow-up"
+            id="kanban_followup_due"
+          />
 
           <DialogFooter>
-            <Button
-              variant="outline"
-              onClick={() => confirmFollowup(false)}
-              disabled={savingFollowup}
-            >
+            <Button variant="outline" onClick={() => confirmFollowup(false)}>
               Pular
             </Button>
-            <Button
-              onClick={() => confirmFollowup(true)}
-              disabled={savingFollowup}
-            >
-              {savingFollowup && <Loader2 className="h-4 w-4 animate-spin" />}
+            <Button onClick={() => confirmFollowup(true)}>
               Criar follow-up
             </Button>
           </DialogFooter>

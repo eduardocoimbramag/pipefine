@@ -15,6 +15,7 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 import { Field } from "@/components/form/field";
+import { FollowupDuePicker } from "@/components/followup-due-picker";
 import { updateFollowup } from "@/app/actions/followups";
 import type { Followup } from "@/types";
 
@@ -22,8 +23,10 @@ export function FollowupEditDialog({ followup }: { followup: Followup }) {
   const router = useRouter();
   const [open, setOpen] = useState(false);
   const [pending, start] = useTransition();
+  const [vencimento, setVencimento] = useState(followup.data_vencimento);
 
   function onSubmit(formData: FormData) {
+    formData.set("data_vencimento", vencimento);
     start(async () => {
       const res = await updateFollowup(followup.id, formData);
       if (res.ok) {
@@ -37,7 +40,14 @@ export function FollowupEditDialog({ followup }: { followup: Followup }) {
   }
 
   return (
-    <Dialog open={open} onOpenChange={setOpen}>
+    <Dialog
+      open={open}
+      onOpenChange={(o) => {
+        setOpen(o);
+        // Ao reabrir, parte da data atual do follow-up.
+        if (o) setVencimento(followup.data_vencimento);
+      }}
+    >
       <DialogTrigger asChild>
         <Button variant="ghost" size="icon" aria-label="Editar follow-up">
           <Pencil className="h-4 w-4" />
@@ -64,15 +74,13 @@ export function FollowupEditDialog({ followup }: { followup: Followup }) {
               rows={2}
             />
           </Field>
-          <Field label="Vencimento" htmlFor="data_vencimento" required>
-            <Input
-              id="data_vencimento"
-              name="data_vencimento"
-              type="date"
-              defaultValue={followup.data_vencimento}
-              required
-            />
-          </Field>
+          <FollowupDuePicker
+            value={vencimento}
+            onChange={setVencimento}
+            label="Vencimento"
+            required
+            id="edit_followup_due"
+          />
           <div className="flex justify-end gap-2">
             <Button
               type="button"

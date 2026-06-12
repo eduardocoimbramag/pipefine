@@ -22,6 +22,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Field } from "@/components/form/field";
+import { FollowupDuePicker } from "@/components/followup-due-picker";
 import { createFollowup } from "@/app/actions/followups";
 import { addDaysISO } from "@/lib/date";
 import type { UserProfile } from "@/types";
@@ -49,10 +50,12 @@ export function AddFollowupDialog({
   const [pending, start] = useTransition();
   const [leadId, setLeadId] = useState(defaultLeadId ?? "");
   const [responsavel, setResponsavel] = useState("");
+  const [vencimento, setVencimento] = useState(() => addDaysISO(2));
 
   function onSubmit(formData: FormData) {
     formData.set("lead_id", leadId);
     formData.set("responsavel_id", responsavel);
+    formData.set("data_vencimento", vencimento);
     start(async () => {
       const res = await createFollowup(formData);
       if (res.ok) {
@@ -66,7 +69,18 @@ export function AddFollowupDialog({
   }
 
   return (
-    <Dialog open={open} onOpenChange={setOpen}>
+    <Dialog
+      open={open}
+      onOpenChange={(o) => {
+        setOpen(o);
+        // Ao reabrir, formulário limpo: sugestão +2 dias e seleções zeradas.
+        if (o) {
+          setVencimento(addDaysISO(2));
+          setLeadId(defaultLeadId ?? "");
+          setResponsavel("");
+        }
+      }}
+    >
       <DialogTrigger asChild>
         <Button variant={triggerVariant} size="sm">
           <Plus className="h-4 w-4" /> {triggerLabel}
@@ -107,31 +121,28 @@ export function AddFollowupDialog({
             <Textarea id="descricao" name="descricao" rows={2} />
           </Field>
 
-          <div className="grid grid-cols-2 gap-3">
-            <Field label="Vencimento" htmlFor="data_vencimento" required>
-              <Input
-                id="data_vencimento"
-                name="data_vencimento"
-                type="date"
-                defaultValue={addDaysISO(2)}
-                required
-              />
-            </Field>
-            <Field label="Responsável">
-              <Select value={responsavel} onValueChange={setResponsavel}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Quem?" />
-                </SelectTrigger>
-                <SelectContent>
-                  {profiles.map((p) => (
-                    <SelectItem key={p.id} value={p.id}>
-                      {p.full_name ?? p.email}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </Field>
-          </div>
+          <FollowupDuePicker
+            value={vencimento}
+            onChange={setVencimento}
+            label="Vencimento"
+            required
+            id="add_followup_due"
+          />
+
+          <Field label="Responsável">
+            <Select value={responsavel} onValueChange={setResponsavel}>
+              <SelectTrigger>
+                <SelectValue placeholder="Quem?" />
+              </SelectTrigger>
+              <SelectContent>
+                {profiles.map((p) => (
+                  <SelectItem key={p.id} value={p.id}>
+                    {p.full_name ?? p.email}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </Field>
 
           <div className="flex justify-end gap-2">
             <Button

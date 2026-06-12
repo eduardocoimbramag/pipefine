@@ -8,6 +8,37 @@ export interface FollowupData {
 }
 
 /**
+ * Sincroniza leads.data_proximo_followup com o follow-up PENDENTE mais próximo
+ * do lead (ou null se não houver nenhum).
+ *
+ * Esse campo é o que o card do Kanban e a lista de leads exibem — qualquer
+ * mutação de follow-up (criar, editar, concluir, reagendar, cancelar, excluir)
+ * deve chamar este sync para a interface nunca mostrar data desatualizada.
+ *
+ * Erros do Supabase são propagados (throw) para a action chamadora reportar —
+ * nunca gravamos NULL por causa de uma falha de leitura.
+ */
+export async function syncLeadNextFollowup(leadId: string): Promise<void> {
+  const supabase = await createClient();
+
+  const { data, error } = await supabase
+    .from("followups")
+    .select("data_vencimento")
+    .eq("lead_id", leadId)
+    .eq("status", "pendente")
+    .order("data_vencimento", { ascending: true })
+    .limit(1)
+    .maybeSingle();
+  if (error) throw error;
+
+  const { error: upErr } = await supabase
+    .from("leads")
+    .update({ data_proximo_followup: data?.data_vencimento ?? null })
+    .eq("id", leadId);
+  if (upErr) throw upErr;
+}
+
+/**
  * Garante que cada lead tenha no máximo 1 follow-up ATIVO (pendente).
  *
  * - Se já existe um follow-up pendente para o lead, ele é ATUALIZADO com os
@@ -18,6 +49,7 @@ export interface FollowupData {
  * automática do orçamento) para manter a regra "1 follow-up ativo por lead".
  *
  * Deve ser chamado de dentro de um Server Action (usa o client de servidor).
+ * Erros do Supabase são propagados para a action reportar ao usuário.
  */
 export async function upsertFollowupForLead(
   leadId: string,
@@ -25,7 +57,7 @@ export async function upsertFollowupForLead(
 ): Promise<void> {
   const supabase = await createClient();
 
-  const { data: existente } = await supabase
+  const { data: existente, error: selErr } = await supabase
     .from("followups")
     .select("id")
     .eq("lead_id", leadId)
@@ -33,9 +65,10 @@ export async function upsertFollowupForLead(
     .order("data_vencimento", { ascending: true })
     .limit(1)
     .maybeSingle();
+  if (selErr) throw selErr;
 
   if (existente) {
-    await supabase
+    const { error } = await supabase
       .from("followups")
       .update({
         titulo: data.titulo,
@@ -45,8 +78,9 @@ export async function upsertFollowupForLead(
         status: "pendente",
       })
       .eq("id", existente.id);
+    if (error) throw error;
   } else {
-    await supabase.from("followups").insert({
+    const { error } = await supabase.from("followups").insert({
       lead_id: leadId,
       titulo: data.titulo,
       descricao: data.descricao ?? null,
@@ -54,7 +88,10 @@ export async function upsertFollowupForLead(
       responsavel_id: data.responsavel_id ?? null,
       status: "pendente",
     });
+    if (error) throw error;
   }
+
+  await syncLeadNextFollowup(leadId);
 }
 
 /**
@@ -68,9 +105,12 @@ export async function upsertFollowupForLead(
  */
 export async function deletePendingFollowups(leadId: string): Promise<void> {
   const supabase = await createClient();
-  await supabase
+  const { error } = await supabase
     .from("followups")
     .delete()
     .eq("lead_id", leadId)
     .eq("status", "pendente");
+  if (error) throw error;
+
+  await syncLeadNextFollowup(leadId);
 }
