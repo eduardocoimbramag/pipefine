@@ -190,8 +190,42 @@ export async function deleteLead(id: string): Promise<ActionResult> {
     const { error } = await supabase.from("leads").delete().eq("id", id);
     if (error) throw error;
     revalidatePath("/leads");
+    revalidatePath("/leads-perdidos");
     revalidatePath("/dashboard");
     return { ok: true, message: "Lead excluído." };
+  } catch (e) {
+    return { ok: false, error: errMsg(e) };
+  }
+}
+
+/**
+ * Exclui vários leads de uma vez (modo de seleção, ex.: aba Leads Perdidos).
+ * Follow-ups e interações vinculados são removidos em cascata pelo banco;
+ * eventos eventualmente vinculados apenas perdem o vínculo (set null).
+ */
+export async function deleteLeadsBulk(
+  ids: string[],
+): Promise<ActionResult<{ count: number }>> {
+  try {
+    await requireUser();
+    if (!ids || ids.length === 0)
+      return { ok: false, error: "Nenhum lead selecionado." };
+
+    const supabase = await createClient();
+    const { error } = await supabase.from("leads").delete().in("id", ids);
+    if (error) throw error;
+
+    revalidatePath("/leads");
+    revalidatePath("/leads-perdidos");
+    revalidatePath("/dashboard");
+    return {
+      ok: true,
+      data: { count: ids.length },
+      message:
+        ids.length === 1
+          ? "Lead removido."
+          : `${ids.length} leads removidos.`,
+    };
   } catch (e) {
     return { ok: false, error: errMsg(e) };
   }

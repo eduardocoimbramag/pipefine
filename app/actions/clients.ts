@@ -76,6 +76,37 @@ export async function deleteClientRecord(id: string): Promise<ActionResult> {
   }
 }
 
+/**
+ * Exclui vários clientes de uma vez (modo de seleção do Banco de Clientes).
+ * Os leads/eventos vinculados não são apagados — apenas perdem o vínculo
+ * (FK on delete set null), preservando o histórico financeiro.
+ */
+export async function deleteClientsBulk(
+  ids: string[],
+): Promise<ActionResult<{ count: number }>> {
+  try {
+    await requireUser();
+    if (!ids || ids.length === 0)
+      return { ok: false, error: "Nenhum cliente selecionado." };
+
+    const supabase = await createClient();
+    const { error } = await supabase.from("clients").delete().in("id", ids);
+    if (error) throw error;
+
+    revalidatePath("/clientes");
+    return {
+      ok: true,
+      data: { count: ids.length },
+      message:
+        ids.length === 1
+          ? "Cliente removido."
+          : `${ids.length} clientes removidos.`,
+    };
+  } catch (e) {
+    return { ok: false, error: errMsg(e) };
+  }
+}
+
 function errMsg(e: unknown): string {
   return e instanceof Error ? e.message : "Ocorreu um erro inesperado.";
 }
