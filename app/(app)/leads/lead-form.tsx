@@ -6,6 +6,7 @@ import { Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Checkbox } from "@/components/ui/checkbox";
 import {
   Select,
   SelectContent,
@@ -14,6 +15,10 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Field } from "@/components/form/field";
+import {
+  ClientPickerDialog,
+  type ClientOption,
+} from "./client-picker-dialog";
 import { createLead, updateLead } from "@/app/actions/leads";
 import {
   FUNNEL_STATUSES,
@@ -27,11 +32,14 @@ export function LeadForm({
   companies,
   lead,
   defaultCompanyId,
+  clients = [],
 }: {
   companies: Company[];
   lead?: Lead;
   /** Empresa em foco na topbar — pré-seleciona o campo ao criar um lead novo. */
   defaultCompanyId?: string;
+  /** Clientes já cadastrados, para a opção "Cliente antigo?" (só ao criar). */
+  clients?: ClientOption[];
 }) {
   const router = useRouter();
   const [pending, start] = useTransition();
@@ -43,6 +51,41 @@ export function LeadForm({
   );
   const [status, setStatus] = useState(lead?.status ?? "novo_lead");
   const [tipoEvento, setTipoEvento] = useState(lead?.tipo_evento ?? "");
+
+  // "Cliente antigo?" — disponível apenas ao criar um lead novo. Ao marcar,
+  // abre o seletor de clientes; ao escolher, vincula o lead ao cliente
+  // (client_id) e preenche nome/telefone/e-mail. O lead vai para o Kanban como
+  // de costume e, quando fechado, conta para o histórico daquele cliente.
+  const isEditing = Boolean(lead);
+  const [oldClient, setOldClient] = useState(false);
+  const [pickerOpen, setPickerOpen] = useState(false);
+  const [linkedClientId, setLinkedClientId] = useState("");
+
+  // Campos preenchíveis pelo seletor de cliente (controlados quando re-vinculado).
+  const [nomeCliente, setNomeCliente] = useState(lead?.nome_cliente ?? "");
+  const [telefone, setTelefone] = useState(lead?.telefone ?? "");
+  const [email, setEmail] = useState(lead?.email ?? "");
+
+  function toggleOldClient(checked: boolean) {
+    setOldClient(checked);
+    if (checked) {
+      setPickerOpen(true);
+    } else {
+      // Desmarcou → desfaz o vínculo e limpa os campos preenchidos.
+      setLinkedClientId("");
+      setNomeCliente("");
+      setTelefone("");
+      setEmail("");
+    }
+  }
+
+  function handleSelectClient(client: ClientOption) {
+    setLinkedClientId(client.id);
+    setNomeCliente(client.name);
+    setTelefone(client.phone ?? "");
+    setEmail(client.email ?? "");
+    setPickerOpen(false);
+  }
 
   // Opções de status = funil do Kanban. Se estiver editando um lead com status
   // fora do funil (ex.: fechado/perdido), mantém o atual na lista para não perdê-lo.
@@ -56,6 +99,8 @@ export function LeadForm({
     formData.set("company_id", companyId);
     formData.set("status", status);
     formData.set("tipo_evento", tipoEvento);
+    // Vínculo com cliente antigo (somente na criação). Em edição o action ignora.
+    formData.set("client_id", linkedClientId);
 
     start(async () => {
       const res = lead
@@ -111,7 +156,8 @@ export function LeadForm({
           <Input
             id="nome_cliente"
             name="nome_cliente"
-            defaultValue={lead?.nome_cliente ?? ""}
+            value={nomeCliente}
+            onChange={(e) => setNomeCliente(e.target.value)}
             required
           />
         </Field>
@@ -120,8 +166,20 @@ export function LeadForm({
           <Input
             id="telefone"
             name="telefone"
-            defaultValue={lead?.telefone ?? ""}
+            value={telefone}
+            onChange={(e) => setTelefone(e.target.value)}
             placeholder="(00) 00000-0000"
+          />
+        </Field>
+
+        <Field label="E-mail" htmlFor="email">
+          <Input
+            id="email"
+            name="email"
+            type="email"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            placeholder="cliente@email.com"
           />
         </Field>
 
@@ -179,12 +237,62 @@ export function LeadForm({
         </Field>
       )}
 
+      {/* Cliente antigo? — re-vincular um cliente já cadastrado (só ao criar). */}
+      {!isEditing && (
+        <div className="rounded-lg border border-dashed bg-muted/30 p-4">
+          <label className="flex items-start gap-3">
+            <Checkbox
+              checked={oldClient}
+              onChange={(e) => toggleOldClient(e.target.checked)}
+              className="mt-0.5"
+            />
+            <span>
+              <span className="text-sm font-medium">Cliente antigo?</span>
+              <span className="block text-xs text-muted-foreground">
+                Marque para abrir um novo evento para um cliente já cadastrado.
+                O lead entra no Kanban vinculado a ele e, ao fechar, conta no
+                histórico de eventos do cliente.
+              </span>
+            </span>
+          </label>
+
+          {linkedClientId && (
+            <div className="mt-3 flex items-center justify-between gap-2 rounded-md border bg-card px-3 py-2">
+              <span className="min-w-0 text-sm">
+                <span className="font-medium">Vinculado a: </span>
+                <span className="text-muted-foreground">{nomeCliente}</span>
+              </span>
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                onClick={() => setPickerOpen(true)}
+              >
+                Trocar
+              </Button>
+            </div>
+          )}
+        </div>
+      )}
+
+      {!isEditing && (
+        <ClientPickerDialog
+          open={pickerOpen}
+          onOpenChange={(o) => {
+            setPickerOpen(o);
+            // Fechou sem escolher e ainda não havia vínculo → desmarca.
+            if (!o && !linkedClientId) setOldClient(false);
+          }}
+          clients={clients}
+          onSelect={handleSelectClient}
+        />
+      )}
+
       {/*
-        Campos removidos do formulário (e-mail, instagram, origem, responsável,
+        Campos removidos do formulário (instagram, origem, responsável,
         valor estimado, próximo follow-up, observações). Mantemos os valores
         existentes via inputs ocultos para não apagá-los ao editar um lead.
       */}
-      <input type="hidden" name="email" defaultValue={lead?.email ?? ""} />
       <input
         type="hidden"
         name="instagram"

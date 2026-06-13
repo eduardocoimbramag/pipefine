@@ -49,6 +49,8 @@ export type LeadRow = Timestamps & {
   id: string;
   company_id: string;
   client_id: string | null;
+  /** Lead criado a partir de um cliente já existente ("Cliente antigo?"). */
+  relinked: boolean;
   nome_cliente: string;
   telefone: string | null;
   email: string | null;
@@ -177,7 +179,7 @@ export interface Database {
       clients: TableDef<ClientRow, Insert<ClientRow>, Update<ClientRow>>;
       leads: TableDef<
         LeadRow,
-        Insert<LeadRow, "status">,
+        Insert<LeadRow, "status" | "relinked">,
         Update<LeadRow>
       >;
       lead_interactions: TableDef<

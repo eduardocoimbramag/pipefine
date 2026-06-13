@@ -1,4 +1,5 @@
 import { createClient } from "@/lib/supabase/server";
+import { relinkFeatureAvailable } from "@/lib/leads.server";
 import { LEAD_ORIGIN_LABELS, type LeadOrigin } from "@/types";
 
 export interface ReportsData {
@@ -24,6 +25,11 @@ interface LeadLite {
   origem_lead: string | null;
   motivo_perda: string | null;
   data_orcamento_enviado: string | null;
+  // Leads re-vinculados ("Cliente antigo?") não contam como perdidos, para ficar
+  // coerente com a aba "Leads Perdidos". `relinked` pode não existir (migração
+  // 004 pendente) — nesse caso caímos para `client_id`.
+  relinked?: boolean | null;
+  client_id?: string | null;
 }
 interface EventLite {
   data_evento: string;
@@ -38,9 +44,14 @@ export async function getReportsData(
 ): Promise<ReportsData> {
   const supabase = await createClient();
 
-  let leadsQuery = supabase
-    .from("leads")
-    .select("status, origem_lead, motivo_perda, data_orcamento_enviado");
+  // `relinked` só é selecionado quando a coluna existe (migração 004); caso
+  // contrário usamos `client_id` para identificar leads re-vinculados.
+  const hasRelinked = await relinkFeatureAvailable();
+  const leadCols = hasRelinked
+    ? "status, origem_lead, motivo_perda, data_orcamento_enviado, relinked, client_id"
+    : "status, origem_lead, motivo_perda, data_orcamento_enviado, client_id";
+
+  let leadsQuery = supabase.from("leads").select(leadCols);
   if (companyId) leadsQuery = leadsQuery.eq("company_id", companyId);
 
   let eventsQuery = supabase
@@ -57,9 +68,14 @@ export async function getReportsData(
   const events = (eventsRes.data ?? []) as unknown as EventLite[];
   const num = (v: number | string) => Number(v) || 0;
 
+  // Um lead conta como "perdido" só se NÃO for re-vinculado (Cliente antigo?),
+  // mantendo a coerência com a aba "Leads Perdidos".
+  const isLost = (l: LeadLite) =>
+    l.status === "perdido" && !(l.relinked ?? l.client_id != null);
+
   const totalLeads = leads.length;
   const leadsFechados = leads.filter((l) => l.status === "fechado").length;
-  const leadsPerdidos = leads.filter((l) => l.status === "perdido").length;
+  const leadsPerdidos = leads.filter(isLost).length;
   const orcamentosEnviados = leads.filter(
     (l) => l.data_orcamento_enviado !== null || l.status === "orcamento_enviado",
   ).length;
@@ -79,10 +95,10 @@ export async function getReportsData(
     }))
     .sort((a, b) => b.total - a.total);
 
-  // Motivos de perda
+  // Motivos de perda (exclui re-vinculados, como em "Leads Perdidos").
   const motivoMap = new Map<string, number>();
   for (const l of leads) {
-    if (l.status === "perdido") {
+    if (isLost(l)) {
       const m = (l.motivo_perda ?? "Não informado").trim() || "Não informado";
       motivoMap.set(m, (motivoMap.get(m) ?? 0) + 1);
     }

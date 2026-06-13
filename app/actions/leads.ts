@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { requireUser } from "@/lib/auth";
 import { upsertFollowupForLead, deletePendingFollowups } from "@/lib/followups";
+import { relinkFeatureAvailable } from "@/lib/leads.server";
 import { addDaysISO } from "@/lib/date";
 import { emptyToNull, toNumberOrNull } from "@/lib/utils";
 import { LEAD_STATUS_LABELS } from "@/types";
@@ -20,6 +21,10 @@ function parseLeadForm(formData: FormData) {
   const intPessoas = toNumberOrNull(formData.get("quantidade_pessoas"));
   return {
     company_id: String(formData.get("company_id") ?? ""),
+    // Vínculo com um cliente já existente ("Cliente antigo?"). Quando presente,
+    // o lead conta para o histórico daquele cliente (Eventos) ao ser fechado e
+    // nunca aparece em "Leads Perdidos".
+    client_id: emptyToNull(formData.get("client_id")),
     nome_cliente: String(formData.get("nome_cliente") ?? "").trim(),
     telefone: emptyToNull(formData.get("telefone")),
     email: emptyToNull(formData.get("email")),
@@ -53,9 +58,18 @@ export async function createLead(
     if (!payload.nome_cliente)
       return { ok: false, error: "Informe o nome do cliente." };
 
+    // "Cliente antigo?": além do vínculo (client_id), grava o marcador imutável
+    // `relinked` quando a coluna existe (migração 004). Assim o lead nunca volta
+    // para "Leads Perdidos" mesmo que o cliente seja excluído depois.
+    const isRelink = Boolean(payload.client_id);
+    const insertPayload: LeadInsert = { ...(payload as LeadInsert) };
+    if (isRelink && (await relinkFeatureAvailable())) {
+      insertPayload.relinked = true;
+    }
+
     const { data, error } = await supabase
       .from("leads")
-      .insert(payload as LeadInsert)
+      .insert(insertPayload)
       .select("id, status")
       .single();
     if (error) throw error;
@@ -88,9 +102,14 @@ export async function updateLead(
     if (!payload.nome_cliente)
       return { ok: false, error: "Informe o nome do cliente." };
 
+    // O vínculo com cliente é definido só na criação (re-link) e no fechamento.
+    // Ao editar não mexemos nele, para não desvincular um lead já ligado.
+    const { client_id: _ignoredClientId, ...updatePayload } = payload;
+    void _ignoredClientId;
+
     const { error } = await supabase
       .from("leads")
-      .update(payload)
+      .update(updatePayload)
       .eq("id", id);
     if (error) throw error;
 

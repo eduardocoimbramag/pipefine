@@ -102,6 +102,10 @@ create table if not exists leads (
   id                      uuid primary key default gen_random_uuid(),
   company_id              uuid not null references companies(id) on delete restrict,
   client_id               uuid references clients(id) on delete set null,
+  -- Marca leads criados a partir de um cliente já existente ("Cliente antigo?").
+  -- É imutável e NÃO depende de client_id (que pode voltar a NULL se o cliente
+  -- for excluído), garantindo que esses leads nunca apareçam em "Leads Perdidos".
+  relinked                boolean not null default false,
   nome_cliente            text not null,
   telefone                text,
   email                   text,

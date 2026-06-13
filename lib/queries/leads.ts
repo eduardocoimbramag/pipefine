@@ -1,4 +1,5 @@
 import { createClient } from "@/lib/supabase/server";
+import { relinkFeatureAvailable } from "@/lib/leads.server";
 import type {
   Lead,
   LeadWithRelations,
@@ -59,17 +60,31 @@ export async function getLeads(
   return (data ?? []) as unknown as LeadWithRelations[];
 }
 
-/** Lista os leads perdidos (status = perdido), com filtros de empresa/busca. */
+/**
+ * Lista os leads perdidos (status = perdido), com filtros de empresa/busca.
+ *
+ * Leads de clientes já existentes (re-vinculados via "Cliente antigo?") nunca
+ * aparecem aqui — mesmo que sejam arrastados para "Perdido" no Kanban eles
+ * apenas saem do funil; o cliente permanece intacto no Banco de Clientes.
+ *
+ * Preferimos o marcador imutável `relinked` (migração 004), que sobrevive à
+ * exclusão do cliente. Sem a coluna, caímos para o filtro por `client_id`.
+ */
 export async function getLostLeads(filters: {
   companyId?: string;
   search?: string;
 } = {}): Promise<LeadWithRelations[]> {
   const supabase = await createClient();
+  const hasRelinked = await relinkFeatureAvailable();
+
   let query = supabase
     .from("leads")
     .select(LEAD_SELECT)
     .eq("status", "perdido")
     .order("updated_at", { ascending: false });
+
+  if (hasRelinked) query = query.eq("relinked", false);
+  else query = query.is("client_id", null);
 
   if (filters.companyId) query = query.eq("company_id", filters.companyId);
   if (filters.search) {
