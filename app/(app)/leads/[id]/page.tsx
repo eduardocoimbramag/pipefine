@@ -4,7 +4,6 @@ import {
   ArrowLeft,
   Phone,
   Mail,
-  AtSign,
   MapPin,
   Users,
   CalendarDays,
@@ -22,12 +21,10 @@ import {
 } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
 import { LeadStatusBadge, FollowupStatusBadge } from "@/components/status-badge";
-import { formatCurrency } from "@/lib/utils";
 import { formatDate, isOverdue } from "@/lib/date";
 import { LeadActions } from "./lead-actions";
 import { FollowupEditDialog } from "./followup-edit-dialog";
 import { AddFollowupDialog } from "../../followups/add-followup-dialog";
-import { LEAD_ORIGIN_LABELS } from "@/types";
 
 export const dynamic = "force-dynamic";
 
@@ -97,11 +94,6 @@ export default async function LeadDetailPage({
             <InfoRow icon={Building2} label="Empresa" value={lead.company?.name} />
             <InfoRow icon={Phone} label="Telefone" value={lead.telefone} />
             <InfoRow icon={Mail} label="E-mail" value={lead.email} />
-            <InfoRow
-              icon={AtSign}
-              label="Instagram"
-              value={lead.instagram}
-            />
             <Separator />
             <InfoRow
               icon={CalendarDays}
@@ -119,31 +111,15 @@ export default async function LeadDetailPage({
               label="Quantidade de pessoas"
               value={lead.quantidade_pessoas?.toString()}
             />
-            <Separator />
-            <InfoRow
-              icon={CalendarDays}
-              label="Valor estimado"
-              value={
-                lead.valor_estimado
-                  ? formatCurrency(lead.valor_estimado)
-                  : "—"
-              }
-            />
-            <InfoRow
-              icon={History}
-              label="Origem"
-              value={
-                lead.origem_lead
-                  ? LEAD_ORIGIN_LABELS[lead.origem_lead]
-                  : "—"
-              }
-            />
             {lead.data_orcamento_enviado && (
-              <InfoRow
-                icon={CalendarDays}
-                label="Orçamento enviado em"
-                value={formatDate(lead.data_orcamento_enviado)}
-              />
+              <>
+                <Separator />
+                <InfoRow
+                  icon={CalendarDays}
+                  label="Orçamento enviado em"
+                  value={formatDate(lead.data_orcamento_enviado)}
+                />
+              </>
             )}
             {lead.motivo_perda && (
               <InfoRow
