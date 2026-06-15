@@ -54,3 +54,24 @@ export async function getFollowups(
   if (error) throw new Error(error.message);
   return (data ?? []) as unknown as FollowupWithLead[];
 }
+
+export type GroupedFollowups = {
+  atrasados: FollowupWithLead[];
+  hoje: FollowupWithLead[];
+  proximos: FollowupWithLead[];
+};
+
+/**
+ * Retorna os follow-ups pendentes já separados em Atrasados, Hoje e Próximos,
+ * todos ordenados por `data_vencimento` ascendente (mais próximos primeiro).
+ */
+export async function getGroupedFollowups(
+  companyId?: string,
+): Promise<GroupedFollowups> {
+  const [atrasados, hoje, proximos] = await Promise.all([
+    getFollowups("atrasados", companyId),
+    getFollowups("hoje", companyId),
+    getFollowups("proximos", companyId),
+  ]);
+  return { atrasados, hoje, proximos };
+}
