@@ -416,6 +416,7 @@ export async function toggleInstallmentPaid(
     revalidatePath(`/eventos/${eventId}`);
     revalidatePath("/eventos");
     revalidatePath("/financeiro");
+    revalidatePath("/recebimentos");
     revalidatePath("/dashboard");
     return {
       ok: true,
