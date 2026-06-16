@@ -134,6 +134,12 @@ export type ActivityLogRow = {
   created_at: string;
 };
 
+export type LoginAttemptRow = Timestamps & {
+  id: string;
+  email: string;
+  ip: string | null;
+};
+
 // ---------------------------------------------------------------------------
 // Helper para Insert/Update (campos auto-gerados ficam opcionais)
 // ---------------------------------------------------------------------------
@@ -209,11 +215,13 @@ export interface Database {
           Partial<Pick<ActivityLogRow, "id" | "created_at">>,
         Partial<Omit<ActivityLogRow, "id" | "created_at">>
       >;
+      login_attempts: TableDef<
+        LoginAttemptRow,
+        Insert<LoginAttemptRow>,
+        Update<LoginAttemptRow>
+      >;
     };
-    Views: Record<
-      string,
-      { Row: Record<string, unknown>; Relationships: [] }
-    >;
+    Views: Record<string, { Row: Record<string, unknown>; Relationships: [] }>;
     Functions: Record<
       string,
       { Args: Record<string, unknown>; Returns: unknown }

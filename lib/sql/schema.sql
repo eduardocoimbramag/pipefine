@@ -202,6 +202,17 @@ create table if not exists activity_logs (
   created_at  timestamptz not null default now()
 );
 
+-- LOGIN_ATTEMPTS ---------------------------------------------------------------
+-- Uma linha por tentativa de login FALHA (rate limiting). Acessada apenas pela
+-- service role a partir do servidor — ver migração 005 e lib/supabase/admin.ts.
+create table if not exists login_attempts (
+  id          uuid primary key default gen_random_uuid(),
+  email       text not null,
+  ip          text,
+  created_at  timestamptz not null default now(),
+  updated_at  timestamptz not null default now()
+);
+
 -- =============================================================================
 -- ÍNDICES
 -- =============================================================================
@@ -229,6 +240,10 @@ create index if not exists idx_installments_venc    on payment_installments(data
 create index if not exists idx_installments_pago    on payment_installments(pago);
 create unique index if not exists uq_installments_event_numero
   on payment_installments(event_id, numero);
+
+create index if not exists idx_login_attempts_email   on login_attempts(email, created_at);
+create index if not exists idx_login_attempts_ip      on login_attempts(ip, created_at);
+create index if not exists idx_login_attempts_created on login_attempts(created_at);
 
 -- =============================================================================
 -- TRIGGERS de updated_at
@@ -259,6 +274,10 @@ create trigger trg_events_updated      before update on events
 
 drop trigger if exists trg_installments_updated on payment_installments;
 create trigger trg_installments_updated before update on payment_installments
+  for each row execute function set_updated_at();
+
+drop trigger if exists trg_login_attempts_updated on login_attempts;
+create trigger trg_login_attempts_updated before update on login_attempts
   for each row execute function set_updated_at();
 
 -- =============================================================================
@@ -296,6 +315,12 @@ alter table followups         enable row level security;
 alter table events            enable row level security;
 alter table activity_logs     enable row level security;
 alter table payment_installments enable row level security;
+
+-- login_attempts: RLS ativado e SEM políticas (nem anon nem authenticated podem
+-- acessar). Apenas a service role, a partir do servidor, lê/escreve — por isso
+-- NÃO entra no loop de políticas "authenticated" abaixo. Ver migração 005.
+alter table login_attempts    enable row level security;
+alter table login_attempts    force row level security;
 
 -- Helper macro via DO: cria política "authenticated full access" em cada tabela
 do $$

@@ -23,7 +23,9 @@ import type {
 } from "@/types";
 
 /** Lê e valida o array de parcelas vindo do formulário (campo JSON). */
-function parseInstallments(raw: FormDataEntryValue | null): GeneratedInstallment[] {
+function parseInstallments(
+  raw: FormDataEntryValue | null,
+): GeneratedInstallment[] {
   if (!raw) return [];
   try {
     const arr = JSON.parse(String(raw));
@@ -210,7 +212,8 @@ export async function createEvent(
     const supabase = await createClient();
     const payload = parseEventForm(formData);
 
-    if (!payload.company_id) return { ok: false, error: "Selecione a empresa." };
+    if (!payload.company_id)
+      return { ok: false, error: "Selecione a empresa." };
     if (!payload.nome_cliente)
       return { ok: false, error: "Informe o nome do cliente." };
     if (!payload.data_evento)
@@ -307,8 +310,43 @@ export async function deleteEvent(id: string): Promise<ActionResult> {
     if (error) throw error;
     revalidatePath("/eventos");
     revalidatePath("/financeiro");
+    revalidatePath("/recebimentos");
     revalidatePath("/dashboard");
     return { ok: true, message: "Evento excluído." };
+  } catch (e) {
+    return { ok: false, error: errMsg(e) };
+  }
+}
+
+/**
+ * Exclui vários eventos de uma vez (modo de seleção da aba Eventos).
+ * As parcelas vinculadas são removidas em cascata pelo banco (FK on delete
+ * cascade); o lead/cliente de origem não é apagado.
+ */
+export async function deleteEventsBulk(
+  ids: string[],
+): Promise<ActionResult<{ count: number }>> {
+  try {
+    await requireUser();
+    if (!ids || ids.length === 0)
+      return { ok: false, error: "Nenhum evento selecionado." };
+
+    const supabase = await createClient();
+    const { error } = await supabase.from("events").delete().in("id", ids);
+    if (error) throw error;
+
+    revalidatePath("/eventos");
+    revalidatePath("/financeiro");
+    revalidatePath("/recebimentos");
+    revalidatePath("/dashboard");
+    return {
+      ok: true,
+      data: { count: ids.length },
+      message:
+        ids.length === 1
+          ? "Evento removido."
+          : `${ids.length} eventos removidos.`,
+    };
   } catch (e) {
     return { ok: false, error: errMsg(e) };
   }
@@ -375,7 +413,8 @@ export async function convertLeadToEvent(leadId: string): Promise<void> {
     .single();
   // Se o evento NÃO foi criado, aborta ANTES de fechar o lead e apagar
   // follow-ups — senão o lead sairia do funil sem evento correspondente.
-  if (evError || !novoEvento) throw evError ?? new Error("Falha ao criar o evento.");
+  if (evError || !novoEvento)
+    throw evError ?? new Error("Falha ao criar o evento.");
 
   // Atualiza o lead para fechado
   const { error: leadErr } = await supabase

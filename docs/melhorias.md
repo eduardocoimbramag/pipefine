@@ -246,7 +246,7 @@ em Configurações (o padrão já existe para empresas).
 **Impacto: médio · Esforço: médio**
 O login não tem nenhum freio contra tentativa de adivinhação de senha.
 Solução gratuita: tabela `login_attempts` no próprio Supabase; bloquear após 5
-falhas em 15 minutos. Junto: subir a senha mínima de 6 para 8+ caracteres.
+falhas em 15 minutos.
 
 ### 29. Validação de dados no servidor (zod)
 **Impacto: médio · Esforço: médio**

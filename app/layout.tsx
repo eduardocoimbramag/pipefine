@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { Manrope, Cormorant_Garamond } from "next/font/google";
 import "./globals.css";
+import { ThemeProvider } from "@/components/theme-provider";
 import { Toaster } from "@/components/ui/sonner";
 
 // Interface do sistema
@@ -33,10 +34,13 @@ export default function RootLayout({
     <html
       lang="pt-BR"
       className={`${manrope.variable} ${cormorant.variable} h-full`}
+      suppressHydrationWarning
     >
       <body className="min-h-full bg-background text-foreground antialiased">
-        {children}
-        <Toaster />
+        <ThemeProvider>
+          {children}
+          <Toaster />
+        </ThemeProvider>
       </body>
     </html>
   );

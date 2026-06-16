@@ -1,4 +1,4 @@
-import { Building2, Users, Info } from "lucide-react";
+import { Building2, Users, Info, Palette } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { getCompanies } from "@/lib/queries/shared";
 import { getCurrentProfile } from "@/lib/auth";
@@ -17,6 +17,7 @@ import {
   CompanyToggle,
   ProfileRoleForm,
 } from "./settings-clients";
+import { ThemeToggle } from "./theme-toggle";
 import { USER_ROLE_LABELS, type UserProfile, type UserRole } from "@/types";
 
 export const metadata = { title: "Configurações — Pipefine" };
@@ -37,6 +38,31 @@ export default async function ConfiguracoesPage() {
         title="Configurações"
         description="Gerencie empresas, usuários e perfis de acesso."
       />
+
+      {/* Aparência */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Palette className="h-5 w-5" /> Aparência
+          </CardTitle>
+          <CardDescription>
+            Escolha o tema da interface. Por padrão segue o seu sistema
+            operacional.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="flex items-center justify-between gap-3 rounded-lg border p-3">
+            <div className="min-w-0">
+              <p className="font-medium">Tema escuro</p>
+              <p className="text-xs text-muted-foreground">
+                Alterne entre claro e escuro. Ótimo para conferir follow-ups à
+                noite.
+              </p>
+            </div>
+            <ThemeToggle />
+          </div>
+        </CardContent>
+      </Card>
 
       {/* Empresas */}
       <Card>
@@ -99,8 +125,7 @@ export default async function ConfiguracoesPage() {
                     )}
                   </p>
                   <p className="truncate text-xs text-muted-foreground">
-                    {p.email} ·{" "}
-                    {USER_ROLE_LABELS[p.role as UserRole] ?? p.role}
+                    {p.email} · {USER_ROLE_LABELS[p.role as UserRole] ?? p.role}
                   </p>
                 </div>
                 <ProfileRoleForm profile={p} />
