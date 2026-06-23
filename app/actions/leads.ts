@@ -202,6 +202,76 @@ export async function updateLeadStatus(
   }
 }
 
+/**
+ * Envia um lead para o Banco de Clientes como "Potencial" (coluna à direita do
+ * Kanban): cliente muito bom que não fechou agora.
+ *
+ * Reusa a estrutura existente — sem migração:
+ * - Garante um cliente vinculado (vai para o Banco de Clientes), SEM criar evento.
+ * - Marca `relinked = true` (migração 004, já aplicada) e sai do funil, de modo
+ *   que o lead NUNCA apareça em "Leads Perdidos" e some do Kanban ativo.
+ * - Remove follow-ups pendentes (o lead saiu do funil).
+ *
+ * Internamente o lead recebe o status terminal `perdido` apenas para sair do
+ * funil; como `relinked = true`, ele é filtrado fora de "Leads Perdidos" e o
+ * usuário nunca vê esse rótulo. O que importa é: o cliente entra no banco.
+ */
+export async function markLeadAsPotential(
+  id: string,
+): Promise<ActionResult<{ clientId: string | null }>> {
+  try {
+    await requireUser();
+    const supabase = await createClient();
+
+    const { data: lead } = await supabase
+      .from("leads")
+      .select("*")
+      .eq("id", id)
+      .single();
+    if (!lead) return { ok: false, error: "Lead não encontrado." };
+
+    // Garante um cliente vinculado (Banco de Clientes), sem criar evento.
+    let clientId: string | null = lead.client_id;
+    if (!clientId) {
+      const { data: client } = await supabase
+        .from("clients")
+        .insert({
+          name: lead.nome_cliente,
+          phone: lead.telefone,
+          email: lead.email,
+          instagram: lead.instagram,
+        })
+        .select("id")
+        .single();
+      clientId = client?.id ?? null;
+    }
+
+    // Sai do funil + vínculo. `relinked = true` (migração 004) garante que o
+    // lead nunca caia em "Leads Perdidos", mesmo que o cliente seja excluído.
+    const patch: LeadUpdate = { status: "perdido", client_id: clientId };
+    if (await relinkFeatureAvailable()) patch.relinked = true;
+
+    const { error } = await supabase.from("leads").update(patch).eq("id", id);
+    if (error) throw error;
+
+    // Lead saiu do funil → remove follow-ups pendentes.
+    await deletePendingFollowups(id);
+
+    revalidatePath("/leads");
+    revalidatePath(`/leads/${id}`);
+    revalidatePath("/clientes");
+    revalidatePath("/followups");
+    revalidatePath("/dashboard");
+    return {
+      ok: true,
+      data: { clientId },
+      message: "Cliente adicionado ao Banco de Clientes.",
+    };
+  } catch (e) {
+    return { ok: false, error: errMsg(e) };
+  }
+}
+
 export async function deleteLead(id: string): Promise<ActionResult> {
   try {
     await requireUser();

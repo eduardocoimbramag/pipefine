@@ -111,20 +111,40 @@ export const KANBAN_LOST_COLUMN: KanbanColumn = {
   tone: "destructive",
 };
 
-/** Mapa status → id da coluna a que pertence (inclui Perdido). */
+/**
+ * Coluna especial "Potencial": clientes muito bons que não fecharam agora.
+ * Renderizada à direita de "Perdido". É uma ZONA DE AÇÃO (não um balde fixo):
+ * ao soltar, o lead vira cliente no Banco de Clientes (sem evento) e sai do
+ * funil; NÃO vai para "Leads Perdidos". Por isso `statuses` é vazio — nenhum
+ * status de lead persiste nesta coluna.
+ */
+export const KANBAN_POTENTIAL_COLUMN: KanbanColumn = {
+  id: "potencial",
+  label: "Potencial",
+  statuses: [],
+  tone: "warning",
+};
+
+/** Colunas especiais (zonas de soltar à parte) renderizadas após o funil. */
+const KANBAN_SPECIAL_COLUMNS = [KANBAN_LOST_COLUMN, KANBAN_POTENTIAL_COLUMN];
+
+/** Mapa status → id da coluna a que pertence (inclui Perdido e Potencial). */
 export const STATUS_TO_COLUMN: Record<LeadStatus, string> = (() => {
   const map = {} as Record<LeadStatus, string>;
-  for (const col of [...KANBAN_COLUMNS, KANBAN_LOST_COLUMN]) {
+  for (const col of [...KANBAN_COLUMNS, ...KANBAN_SPECIAL_COLUMNS]) {
     for (const s of col.statuses) map[s] = col.id;
   }
   return map;
 })();
 
-/** Status padrão aplicado ao soltar um card numa coluna. */
+/**
+ * Status padrão aplicado ao soltar um card numa coluna. Colunas-ação sem status
+ * próprio (ex.: "Potencial") são ignoradas — seu drop é tratado à parte.
+ */
 export const COLUMN_DEFAULT_STATUS: Record<string, LeadStatus> = (() => {
   const map: Record<string, LeadStatus> = {};
-  for (const col of [...KANBAN_COLUMNS, KANBAN_LOST_COLUMN]) {
-    map[col.id] = col.statuses[0];
+  for (const col of [...KANBAN_COLUMNS, ...KANBAN_SPECIAL_COLUMNS]) {
+    if (col.statuses[0]) map[col.id] = col.statuses[0];
   }
   return map;
 })();

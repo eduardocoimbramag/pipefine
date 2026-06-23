@@ -16,13 +16,7 @@ import {
   type DragStartEvent,
   type DragEndEvent,
 } from "@dnd-kit/core";
-import {
-  GripVertical,
-  Loader2,
-  XCircle,
-  CalendarClock,
-  CheckCircle2,
-} from "lucide-react";
+import { Loader2, XCircle, CalendarClock, CheckCircle2 } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -42,7 +36,7 @@ import {
   type PaymentPlanValue,
 } from "@/components/payment-plan-editor";
 import { FollowupDuePicker } from "@/components/followup-due-picker";
-import { updateLeadStatus } from "@/app/actions/leads";
+import { updateLeadStatus, markLeadAsPotential } from "@/app/actions/leads";
 import { closeLeadAsEvent } from "@/app/actions/events";
 import { generateInstallments } from "@/lib/installments";
 import { formatCurrency, cn } from "@/lib/utils";
@@ -50,9 +44,9 @@ import { formatDate, isOverdue, todayISO, addDaysISO } from "@/lib/date";
 import {
   KANBAN_COLUMNS,
   KANBAN_LOST_COLUMN,
+  KANBAN_POTENTIAL_COLUMN,
   STATUS_TO_COLUMN,
   COLUMN_DEFAULT_STATUS,
-  LEAD_STATUS_LABELS,
   type LeadWithRelations,
   type LeadStatus,
 } from "@/types";
@@ -62,7 +56,12 @@ type BoardLeads = Record<string, LeadWithRelations[]>;
 /** Distribui os leads nas colunas a partir do status. */
 function groupLeads(leads: LeadWithRelations[]): BoardLeads {
   const board: BoardLeads = {};
-  for (const col of [...KANBAN_COLUMNS, KANBAN_LOST_COLUMN]) board[col.id] = [];
+  for (const col of [
+    ...KANBAN_COLUMNS,
+    KANBAN_LOST_COLUMN,
+    KANBAN_POTENTIAL_COLUMN,
+  ])
+    board[col.id] = [];
   for (const lead of leads) {
     const colId = STATUS_TO_COLUMN[lead.status] ?? KANBAN_COLUMNS[0].id;
     (board[colId] ??= []).push(lead);
@@ -168,6 +167,20 @@ export function KanbanBoard({ leads }: { leads: LeadWithRelations[] }) {
     });
   }
 
+  function persistPotential(lead: LeadWithRelations, fromColumn: string) {
+    moveCardInState(lead.id, fromColumn, KANBAN_POTENTIAL_COLUMN.id);
+    startTransition(async () => {
+      const res = await markLeadAsPotential(lead.id);
+      if (res.ok) {
+        toast.success("Enviado para o Banco de Clientes como potencial.");
+        router.refresh();
+      } else {
+        toast.error(res.error);
+        setBoard(groupLeads(leads)); // reverte
+      }
+    });
+  }
+
   function onDragStart(e: DragStartEvent) {
     setActiveId(String(e.active.id));
   }
@@ -218,6 +231,13 @@ export function KanbanBoard({ leads }: { leads: LeadWithRelations[] }) {
         local_evento: lead.local_evento ?? "",
       });
       setEventDialog({ lead });
+      return;
+    }
+
+    // Mover para "Potencial": cliente bom que não fechou agora. Ação direta —
+    // vira cliente no Banco de Clientes (sem evento) e sai do funil.
+    if (toColumn === KANBAN_POTENTIAL_COLUMN.id) {
+      persistPotential(lead, fromColumn);
       return;
     }
 
@@ -312,7 +332,7 @@ export function KanbanBoard({ leads }: { leads: LeadWithRelations[] }) {
       onDragStart={onDragStart}
       onDragEnd={onDragEnd}
     >
-      <div className="flex gap-3 overflow-x-auto pb-4">
+      <div className="flex items-start gap-3 overflow-x-auto pb-2">
         {KANBAN_COLUMNS.map((col) => (
           <Column
             key={col.id}
@@ -336,6 +356,21 @@ export function KanbanBoard({ leads }: { leads: LeadWithRelations[] }) {
           muted
         >
           {board[KANBAN_LOST_COLUMN.id]?.map((lead) => (
+            <KanbanCard key={lead.id} lead={lead} />
+          ))}
+        </Column>
+
+        {/* Coluna "Potencial": clientes bons que não fecharam agora →
+            vão para o Banco de Clientes (sem evento). */}
+        <Column
+          id={KANBAN_POTENTIAL_COLUMN.id}
+          label={KANBAN_POTENTIAL_COLUMN.label}
+          tone={KANBAN_POTENTIAL_COLUMN.tone}
+          count={board[KANBAN_POTENTIAL_COLUMN.id]?.length ?? 0}
+          badgeClassName="text-warning"
+          muted
+        >
+          {board[KANBAN_POTENTIAL_COLUMN.id]?.map((lead) => (
             <KanbanCard key={lead.id} lead={lead} />
           ))}
         </Column>
@@ -536,6 +571,7 @@ function Column({
   tone,
   count,
   muted,
+  badgeClassName,
   children,
 }: {
   id: string;
@@ -543,6 +579,8 @@ function Column({
   tone: React.ComponentProps<typeof Badge>["tone"];
   count: number;
   muted?: boolean;
+  /** Classe extra para o badge de contagem (ex.: cor do número da coluna). */
+  badgeClassName?: string;
   children: React.ReactNode;
 }) {
   const { setNodeRef, isOver } = useDroppable({ id });
@@ -550,21 +588,23 @@ function Column({
     <div
       ref={setNodeRef}
       className={cn(
-        "flex w-72 shrink-0 flex-col rounded-xl border bg-muted/30 transition-colors",
+        "flex w-64 shrink-0 flex-col rounded-xl border bg-muted/30 transition-colors",
         isOver && "border-primary bg-primary/5 ring-2 ring-primary/30",
         muted && "bg-muted/10",
       )}
     >
-      <div className="flex items-center justify-between gap-2 border-b px-3 py-2.5">
+      <div className="flex items-center justify-between gap-2 border-b px-3 py-2">
         <div className="flex items-center gap-2">
           <span className="text-sm font-semibold">{label}</span>
-          <Badge tone={tone}>{count}</Badge>
+          <Badge tone={tone} className={badgeClassName}>
+            {count}
+          </Badge>
         </div>
       </div>
-      <div className="flex min-h-[120px] flex-1 flex-col gap-2 p-2">
+      <div className="flex flex-col gap-1.5 p-1.5">
         {children}
         {count === 0 && (
-          <p className="px-2 py-6 text-center text-xs text-muted-foreground">
+          <p className="px-2 py-4 text-center text-xs text-muted-foreground">
             Solte um lead aqui
           </p>
         )}
@@ -594,66 +634,46 @@ function KanbanCard({
     <div
       ref={setNodeRef}
       style={style}
+      {...attributes}
+      {...listeners}
       className={cn(
-        "group rounded-lg border bg-card p-3 shadow-sm",
+        "group cursor-grab touch-none rounded-lg border bg-card px-2.5 py-2 shadow-sm active:cursor-grabbing",
         isDragging && !overlay && "opacity-40",
-        overlay && "rotate-2 shadow-lg",
+        overlay && "rotate-2 cursor-grabbing shadow-lg",
       )}
     >
-      <div className="flex items-start gap-1.5">
-        <button
-          {...attributes}
-          {...listeners}
-          className="mt-0.5 cursor-grab touch-none text-muted-foreground/50 hover:text-muted-foreground active:cursor-grabbing"
-          aria-label="Arrastar"
-        >
-          <GripVertical className="h-4 w-4" />
-        </button>
-        <div className="min-w-0 flex-1">
-          <Link
-            href={`/leads/${lead.id}`}
-            className="block truncate text-sm font-medium hover:underline"
-            onClick={(e) => isDragging && e.preventDefault()}
-          >
-            {lead.nome_cliente}
-          </Link>
-          <p className="truncate text-xs text-muted-foreground">
-            {lead.company?.name ?? "—"}
-            {lead.tipo_evento ? ` · ${lead.tipo_evento}` : ""}
-          </p>
+      <Link
+        href={`/leads/${lead.id}`}
+        className="block truncate text-sm font-medium hover:underline"
+        onClick={(e) => isDragging && e.preventDefault()}
+      >
+        {lead.nome_cliente}
+      </Link>
+      <p className="truncate text-xs text-muted-foreground">
+        {lead.company?.name ?? "—"}
+        {lead.tipo_evento ? ` · ${lead.tipo_evento}` : ""}
+      </p>
 
-          <div className="mt-2 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs">
-            {lead.valor_estimado ? (
-              <span className="font-medium text-foreground">
-                {formatCurrency(lead.valor_estimado)}
-              </span>
-            ) : null}
-            {lead.data_evento && (
-              <span className="text-muted-foreground">
-                {formatDate(lead.data_evento)}
-              </span>
-            )}
-          </div>
-
+      {(lead.valor_estimado || lead.data_proximo_followup) && (
+        <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-xs">
+          {lead.valor_estimado ? (
+            <span className="font-medium text-foreground">
+              {formatCurrency(lead.valor_estimado)}
+            </span>
+          ) : null}
           {lead.data_proximo_followup && (
-            <p
+            <span
               className={cn(
-                "mt-1 text-xs",
                 followupOverdue
                   ? "font-medium text-destructive"
                   : "text-muted-foreground",
               )}
             >
               Follow-up: {formatDate(lead.data_proximo_followup)}
-            </p>
+            </span>
           )}
-
-          {/* mostra status exato dentro da coluna agrupada, quando relevante */}
-          <p className="mt-1 text-[10px] uppercase tracking-wide text-muted-foreground/70">
-            {LEAD_STATUS_LABELS[lead.status as LeadStatus]}
-          </p>
         </div>
-      </div>
+      )}
     </div>
   );
 }
