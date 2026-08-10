@@ -52,7 +52,6 @@ export default async function DashboardPage() {
           value={d.leadsQuentes}
           icon={Flame}
           tone="primary"
-          hint="Ativos no funil"
           href="/leads"
         />
         <StatCard
@@ -60,7 +59,6 @@ export default async function DashboardPage() {
           value={d.faltaAssinar}
           icon={FileSignature}
           tone="purple"
-          hint="Em negociação"
           href="/leads?status=negociacao"
         />
         <StatCard

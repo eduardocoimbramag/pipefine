@@ -12,7 +12,12 @@ import {
   isMissingPaymentFeatureError,
 } from "@/lib/installments.server";
 import type { GeneratedInstallment } from "@/lib/installments";
-import { emptyToNull, toNumberOrNull } from "@/lib/utils";
+import {
+  emptyToNull,
+  toNumberOrNull,
+  parseMoney,
+  roundMoney,
+} from "@/lib/utils";
 import type {
   ActionResult,
   EventInsert,
@@ -34,7 +39,7 @@ function parseInstallments(
       .map((i, idx) => ({
         numero: Number(i.numero) || idx + 1,
         data_vencimento: String(i.data_vencimento ?? ""),
-        valor: Number(i.valor) || 0,
+        valor: roundMoney(Number(i.valor) || 0),
       }))
       .filter((i) => i.data_vencimento.length > 0);
   } catch {
@@ -43,8 +48,8 @@ function parseInstallments(
 }
 
 function parseEventForm(formData: FormData) {
-  const total = toNumberOrNull(formData.get("valor_total")) ?? 0;
-  const entrada = toNumberOrNull(formData.get("valor_entrada")) ?? 0;
+  const total = parseMoney(formData.get("valor_total")) ?? 0;
+  const entrada = parseMoney(formData.get("valor_entrada")) ?? 0;
   const pessoas = toNumberOrNull(formData.get("quantidade_pessoas"));
   return {
     company_id: String(formData.get("company_id") ?? ""),
@@ -58,7 +63,7 @@ function parseEventForm(formData: FormData) {
     servicos_contratados: emptyToNull(formData.get("servicos_contratados")),
     valor_total: total,
     valor_entrada: entrada,
-    valor_restante: Math.max(total - entrada, 0),
+    valor_restante: roundMoney(Math.max(total - entrada, 0)),
     forma_pagamento: emptyToNull(formData.get("forma_pagamento")),
     payment_method:
       (emptyToNull(formData.get("payment_method")) as PaymentMethod | null) ??
@@ -109,7 +114,7 @@ export async function closeLeadAsEvent(
 
     const dataEvento = String(formData.get("data_evento") ?? "");
     const local = emptyToNull(formData.get("local_evento"));
-    const total = toNumberOrNull(formData.get("valor_total")) ?? 0;
+    const total = parseMoney(formData.get("valor_total")) ?? 0;
     const paymentMethod =
       (emptyToNull(formData.get("payment_method")) as PaymentMethod | null) ??
       null;

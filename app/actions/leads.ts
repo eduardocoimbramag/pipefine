@@ -6,7 +6,7 @@ import { requireUser } from "@/lib/auth";
 import { upsertFollowupForLead, deletePendingFollowups } from "@/lib/followups";
 import { relinkFeatureAvailable } from "@/lib/leads.server";
 import { addDaysISO } from "@/lib/date";
-import { emptyToNull, toNumberOrNull } from "@/lib/utils";
+import { emptyToNull, toNumberOrNull, parseMoney } from "@/lib/utils";
 import { LEAD_STATUS_LABELS } from "@/types";
 import type {
   ActionResult,
@@ -34,7 +34,7 @@ function parseLeadForm(formData: FormData) {
     data_evento: emptyToNull(formData.get("data_evento")),
     local_evento: emptyToNull(formData.get("local_evento")),
     quantidade_pessoas: intPessoas !== null ? Math.round(intPessoas) : null,
-    valor_estimado: toNumberOrNull(formData.get("valor_estimado")),
+    valor_estimado: parseMoney(formData.get("valor_estimado")),
     status: (String(formData.get("status") ?? "novo_lead") as LeadStatus),
     responsavel_id: emptyToNull(formData.get("responsavel_id")),
     data_primeiro_contato: emptyToNull(formData.get("data_primeiro_contato")),

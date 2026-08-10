@@ -30,9 +30,10 @@ export function StatCard({
   href?: string;
 }) {
   const content = (
+    // h-full: cards com e sem `hint` na mesma linha ficam da mesma altura.
     <Card
       className={cn(
-        "p-4 transition-shadow",
+        "h-full p-4 transition-shadow",
         href && "hover:shadow-md cursor-pointer",
       )}
     >
@@ -58,5 +59,11 @@ export function StatCard({
     </Card>
   );
 
-  return href ? <Link href={href}>{content}</Link> : content;
+  return href ? (
+    <Link href={href} className="block h-full">
+      {content}
+    </Link>
+  ) : (
+    content
+  );
 }

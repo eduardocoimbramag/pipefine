@@ -15,10 +15,12 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Field } from "@/components/form/field";
+import { CurrencyInput } from "@/components/form/currency-input";
 import {
   PaymentPlanEditor,
   type PaymentPlanValue,
 } from "@/components/payment-plan-editor";
+import { moneyToFormValue } from "@/lib/utils";
 import { createEvent, updateEvent } from "@/app/actions/events";
 import {
   generateInstallments,
@@ -61,7 +63,7 @@ export function EventForm({
   const [tipoEvento, setTipoEvento] = useState(event?.tipo_evento ?? "");
 
   // Valor total e data do evento controlados (alimentam o plano de pagamento)
-  const [total, setTotal] = useState(event?.valor_total ?? 0);
+  const [total, setTotal] = useState(Number(event?.valor_total) || 0);
   const [dataEvento, setDataEvento] = useState(event?.data_evento ?? "");
 
   // Plano de pagamento (forma + parcelas). Inicia com o cronograma já gerado
@@ -73,7 +75,7 @@ export function EventForm({
       method,
       installments: generateInstallments({
         method,
-        valorTotal: event?.valor_total ?? 0,
+        valorTotal: Number(event?.valor_total) || 0,
         dataEvento: event?.data_evento ?? "",
         hoje: todayISO(),
       }),
@@ -253,22 +255,24 @@ export function EventForm({
       {/* Financeiro */}
       <div className="space-y-3 rounded-lg border bg-muted/30 p-4">
         <p className="text-sm font-medium">Financeiro</p>
-        <Field label="Valor total (R$)" htmlFor="valor_total" className="sm:max-w-xs">
-          <Input
+        <Field
+          label="Valor total"
+          htmlFor="valor_total"
+          className="sm:max-w-xs"
+          hint="Digite só os números — os centavos entram sozinhos."
+        >
+          <CurrencyInput
             id="valor_total"
             name="valor_total"
-            type="number"
-            step="0.01"
-            min={0}
             value={total}
-            onChange={(e) => setTotal(Number(e.target.value))}
+            onValueChange={setTotal}
           />
         </Field>
 
         {/* O recebido/restante e o status de pagamento são derivados das
             parcelas marcadas como pagas. */}
         <PaymentPlanEditor
-          valorTotal={Number(total) || 0}
+          valorTotal={total}
           dataEvento={dataEvento}
           onChange={setPlan}
           initialMethod={event?.payment_method ?? "total"}
@@ -276,8 +280,13 @@ export function EventForm({
         />
       </div>
 
-      {/* O valor_entrada é gerido pelas parcelas; mantido oculto para o backend. */}
-      <input type="hidden" name="valor_entrada" value={event?.valor_entrada ?? 0} />
+      {/* O valor_entrada é gerido pelas parcelas; mantido oculto para o backend
+          no formato de máquina ("1943.50"). */}
+      <input
+        type="hidden"
+        name="valor_entrada"
+        value={moneyToFormValue(Number(event?.valor_entrada) || 0)}
+      />
 
       <Field label="Observações operacionais" htmlFor="observacoes_operacionais">
         <Textarea

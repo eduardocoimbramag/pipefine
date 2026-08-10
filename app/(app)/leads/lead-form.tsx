@@ -19,6 +19,7 @@ import {
   ClientPickerDialog,
   type ClientOption,
 } from "./client-picker-dialog";
+import { moneyToFormValue } from "@/lib/utils";
 import { createLead, updateLead } from "@/app/actions/leads";
 import {
   FUNNEL_STATUSES,
@@ -308,10 +309,15 @@ export function LeadForm({
         name="responsavel_id"
         defaultValue={lead?.responsavel_id ?? ""}
       />
+      {/* Formato de máquina ("1943.50") para não perder centavos ao reenviar. */}
       <input
         type="hidden"
         name="valor_estimado"
-        defaultValue={lead?.valor_estimado ?? ""}
+        defaultValue={
+          lead?.valor_estimado != null
+            ? moneyToFormValue(Number(lead.valor_estimado))
+            : ""
+        }
       />
       {/* data_proximo_followup não é enviado: é derivado dos follow-ups. */}
       <input

@@ -31,6 +31,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Field } from "@/components/form/field";
+import { CurrencyInput } from "@/components/form/currency-input";
 import {
   PaymentPlanEditor,
   type PaymentPlanValue,
@@ -39,7 +40,7 @@ import { FollowupDuePicker } from "@/components/followup-due-picker";
 import { updateLeadStatus, markLeadAsPotential } from "@/app/actions/leads";
 import { closeLeadAsEvent } from "@/app/actions/events";
 import { generateInstallments } from "@/lib/installments";
-import { formatCurrency, cn } from "@/lib/utils";
+import { formatCurrency, moneyToFormValue, cn } from "@/lib/utils";
 import { formatDate, isOverdue, todayISO, addDaysISO } from "@/lib/date";
 import {
   KANBAN_COLUMNS,
@@ -96,7 +97,8 @@ export function KanbanBoard({ leads }: { leads: LeadWithRelations[] }) {
   } | null>(null);
   const [eventForm, setEventForm] = useState({
     data_evento: "",
-    valor_total: "",
+    /** Valor em reais (número) — o campo com máscara cuida dos centavos. */
+    valor_total: 0,
     local_evento: "",
   });
   const [plan, setPlan] = useState<PaymentPlanValue>({
@@ -214,7 +216,7 @@ export function KanbanBoard({ leads }: { leads: LeadWithRelations[] }) {
     // Não move ainda — o card sai do funil só ao concluir o pop-up.
     if (toColumn === "fechado") {
       const dataEv = lead.data_evento ?? todayISO();
-      const totalEv = lead.valor_estimado ?? 0;
+      const totalEv = Number(lead.valor_estimado) || 0;
       setPlan({
         method: "total",
         installments: generateInstallments({
@@ -226,8 +228,7 @@ export function KanbanBoard({ leads }: { leads: LeadWithRelations[] }) {
       });
       setEventForm({
         data_evento: dataEv,
-        valor_total:
-          lead.valor_estimado != null ? String(lead.valor_estimado) : "",
+        valor_total: totalEv,
         local_evento: lead.local_evento ?? "",
       });
       setEventDialog({ lead });
@@ -255,7 +256,7 @@ export function KanbanBoard({ leads }: { leads: LeadWithRelations[] }) {
 
     const fd = new FormData();
     fd.set("data_evento", eventForm.data_evento);
-    fd.set("valor_total", eventForm.valor_total);
+    fd.set("valor_total", moneyToFormValue(eventForm.valor_total));
     fd.set("local_evento", eventForm.local_evento);
     fd.set("payment_method", plan.method);
     fd.set("installments", JSON.stringify(plan.installments));
@@ -513,15 +514,16 @@ export function KanbanBoard({ leads }: { leads: LeadWithRelations[] }) {
                 }
               />
             </Field>
-            <Field label="Valor total (R$)" htmlFor="ev_total">
-              <Input
+            <Field
+              label="Valor total"
+              htmlFor="ev_total"
+              hint="Digite só os números — os centavos entram sozinhos."
+            >
+              <CurrencyInput
                 id="ev_total"
-                type="number"
-                step="0.01"
-                min={0}
                 value={eventForm.valor_total}
-                onChange={(e) =>
-                  setEventForm((f) => ({ ...f, valor_total: e.target.value }))
+                onValueChange={(valor_total) =>
+                  setEventForm((f) => ({ ...f, valor_total }))
                 }
               />
             </Field>
@@ -529,7 +531,7 @@ export function KanbanBoard({ leads }: { leads: LeadWithRelations[] }) {
 
           {/* Forma de pagamento + parcelas */}
           <PaymentPlanEditor
-            valorTotal={Number(eventForm.valor_total) || 0}
+            valorTotal={eventForm.valor_total}
             dataEvento={eventForm.data_evento}
             onChange={setPlan}
             initialMethod="total"

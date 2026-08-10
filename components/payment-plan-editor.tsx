@@ -12,6 +12,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Field } from "@/components/form/field";
+import { CurrencyInput } from "@/components/form/currency-input";
 import { formatCurrency, cn } from "@/lib/utils";
 import { todayISO } from "@/lib/date";
 import {
@@ -258,9 +259,11 @@ export function PaymentPlanEditor({
         </div>
 
         <div className="max-h-64 space-y-1.5 overflow-y-auto pr-1">
+          {/* flex-wrap: em telas estreitas a linha quebra (data em cima,
+              valor + remover embaixo) em vez de estourar a largura. */}
           {installments.map((it, idx) => (
-            <div key={idx} className="flex items-center gap-2">
-              <span className="w-6 shrink-0 text-center text-xs text-muted-foreground">
+            <div key={idx} className="flex flex-wrap items-center gap-2">
+              <span className="w-5 shrink-0 text-center text-xs text-muted-foreground">
                 {idx + 1}
               </span>
               <Input
@@ -269,17 +272,15 @@ export function PaymentPlanEditor({
                 onChange={(e) =>
                   updateRow(idx, { data_vencimento: e.target.value })
                 }
-                className="h-8"
+                className="h-8 min-w-[8.5rem] flex-1"
+                aria-label={`Vencimento da parcela ${idx + 1}`}
               />
-              <Input
-                type="number"
-                step="0.01"
-                min={0}
+              <CurrencyInput
                 value={it.valor}
-                onChange={(e) =>
-                  updateRow(idx, { valor: Number(e.target.value) || 0 })
-                }
-                className="h-8 w-28"
+                onValueChange={(valor) => updateRow(idx, { valor })}
+                className="h-8"
+                wrapperClassName="w-28 flex-1 sm:w-36 sm:flex-none"
+                aria-label={`Valor da parcela ${idx + 1}`}
               />
               <Button
                 type="button"
