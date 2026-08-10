@@ -6,6 +6,7 @@ import { Loader2 } from "lucide-react";
 import { signIn, signUp } from "./actions";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { PasswordInput } from "@/components/form/password-input";
 import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import type { ActionResult } from "@/types";
@@ -55,10 +56,9 @@ export function LoginForm({ redirectTo }: { redirectTo: string }) {
           </div>
           <div className="space-y-2">
             <Label htmlFor="password">Senha</Label>
-            <Input
+            <PasswordInput
               id="password"
               name="password"
-              type="password"
               placeholder="••••••••"
               autoComplete="current-password"
               required
@@ -97,10 +97,9 @@ export function LoginForm({ redirectTo }: { redirectTo: string }) {
           </div>
           <div className="space-y-2">
             <Label htmlFor="password_signup">Senha</Label>
-            <Input
+            <PasswordInput
               id="password_signup"
               name="password"
-              type="password"
               placeholder="Mínimo 6 caracteres"
               autoComplete="new-password"
               required
