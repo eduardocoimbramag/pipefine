@@ -10,7 +10,9 @@ export interface EventFilters {
   companyId?: string;
   statusEvento?: EventStatus;
   statusPagamento?: PaymentStatus;
-  month?: string; // yyyy-MM
+  /** Intervalo de data_evento (yyyy-MM-dd), inclusivo nas duas pontas. */
+  start?: string;
+  end?: string;
   search?: string;
 }
 
@@ -21,10 +23,13 @@ export async function getEvents(
   filters: EventFilters = {},
 ): Promise<EventWithRelations[]> {
   const supabase = await createClient();
+  // Ordem cronológica: o evento mais próximo primeiro. Empates no mesmo dia
+  // saem pelo horário (eventos sem horário definido vão para o fim do dia).
   let query = supabase
     .from("events")
     .select(EVENT_SELECT)
-    .order("data_evento", { ascending: false });
+    .order("data_evento", { ascending: true })
+    .order("horario_inicio", { ascending: true, nullsFirst: false });
 
   if (filters.companyId) query = query.eq("company_id", filters.companyId);
   if (filters.statusEvento)
@@ -32,12 +37,8 @@ export async function getEvents(
   if (filters.statusPagamento)
     query = query.eq("status_pagamento", filters.statusPagamento);
 
-  if (filters.month) {
-    const start = `${filters.month}-01`;
-    const [y, m] = filters.month.split("-").map(Number);
-    const end = new Date(y, m, 0).toISOString().slice(0, 10); // último dia do mês
-    query = query.gte("data_evento", start).lte("data_evento", end);
-  }
+  if (filters.start) query = query.gte("data_evento", filters.start);
+  if (filters.end) query = query.lte("data_evento", filters.end);
 
   if (filters.search) {
     const s = filters.search.replace(/[%,]/g, "");

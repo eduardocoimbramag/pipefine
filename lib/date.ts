@@ -4,6 +4,8 @@ import {
   isValid,
   startOfMonth,
   endOfMonth,
+  startOfWeek,
+  endOfWeek,
   startOfYear,
   endOfYear,
   subMonths,
@@ -87,12 +89,56 @@ export function previousMonthRange(ref: Date = new Date()) {
   return monthRange(subMonths(ref, 1));
 }
 
+/** Intervalo da semana atual (domingo a sábado, padrão pt-BR). */
+export function weekRange(ref: Date = new Date()) {
+  return {
+    start: format(startOfWeek(ref, { locale: ptBR }), "yyyy-MM-dd"),
+    end: format(endOfWeek(ref, { locale: ptBR }), "yyyy-MM-dd"),
+  };
+}
+
 /** Intervalo do ano em ISO. */
 export function yearRange(ref: Date = new Date()) {
   return {
     start: format(startOfYear(ref), "yyyy-MM-dd"),
     end: format(endOfYear(ref), "yyyy-MM-dd"),
   };
+}
+
+/* -------------------------------------------------------------------------
+   Período rápido — filtro de listagem (URL: ?periodo=semana|mes|ano)
+   ------------------------------------------------------------------------- */
+
+export const PERIODS = ["todos", "semana", "mes", "ano"] as const;
+export type Period = (typeof PERIODS)[number];
+
+export const PERIOD_LABELS: Record<Period, string> = {
+  todos: "Todos os eventos",
+  semana: "Esta semana",
+  mes: "Este mês",
+  ano: "Este ano",
+};
+
+/** Lê o período vindo da URL; qualquer valor inválido vira "todos". */
+export function parsePeriod(value: string | null | undefined): Period {
+  return PERIODS.includes(value as Period) ? (value as Period) : "todos";
+}
+
+/** Converte o período em intervalo ISO. "todos" não restringe (null). */
+export function periodRange(
+  period: Period,
+  ref: Date = new Date(),
+): { start: string; end: string } | null {
+  switch (period) {
+    case "semana":
+      return weekRange(ref);
+    case "mes":
+      return monthRange(ref);
+    case "ano":
+      return yearRange(ref);
+    default:
+      return null;
+  }
 }
 
 export { startOfMonth, endOfMonth, subMonths };

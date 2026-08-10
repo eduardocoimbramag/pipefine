@@ -2,8 +2,10 @@
 
 import { useState, type ReactNode } from "react";
 import Link from "next/link";
-import { Plus, Trash2, CalendarDays } from "lucide-react";
+import { Plus, Trash2, CalendarDays, LayoutList, CalendarRange } from "lucide-react";
 import { PageHeader } from "@/components/page-header";
+import { ViewToggle } from "@/components/view-toggle";
+import { EventsCalendar } from "./events-calendar";
 import { EmptyState } from "@/components/empty-state";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -17,28 +19,30 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { BulkDeleteBar } from "@/components/bulk-delete-bar";
-import {
-  EventStatusBadge,
-  PaymentStatusBadge,
-} from "@/components/status-badge";
+import { PaymentStatusBadge } from "@/components/status-badge";
 import { deleteEventsBulk } from "@/app/actions/events";
 import { formatCurrency } from "@/lib/utils";
 import { formatDate } from "@/lib/date";
 import { cn } from "@/lib/utils";
 import type { EventWithRelations } from "@/types";
 
+export type EventsView = "lista" | "calendario";
+
 export function EventsManager({
   events,
   description,
   filters,
+  view,
 }: {
   events: EventWithRelations[];
   description: string;
   /** Barra de filtros (server-rendered), inserida entre o cabeçalho e a lista. */
   filters: ReactNode;
+  view: EventsView;
 }) {
   const [selecting, setSelecting] = useState(false);
   const [selected, setSelected] = useState<Set<string>>(new Set());
+  const isCalendario = view === "calendario";
 
   const allSelected = events.length > 0 && selected.size === events.length;
   const someSelected = selected.size > 0 && !allSelected;
@@ -62,7 +66,16 @@ export function EventsManager({
   return (
     <>
       <PageHeader title="Eventos" description={description}>
-        {!selecting && (
+        <ViewToggle<EventsView>
+          value={view}
+          defaultView="lista"
+          options={[
+            { key: "lista", label: "Lista", icon: LayoutList },
+            { key: "calendario", label: "Calendário", icon: CalendarRange },
+          ]}
+        />
+        {/* Seleção múltipla é exclusiva da lista. */}
+        {!selecting && !isCalendario && (
           <Button
             variant="outline"
             onClick={() => setSelecting(true)}
@@ -80,7 +93,9 @@ export function EventsManager({
 
       {filters}
 
-      {events.length === 0 ? (
+      {isCalendario ? (
+        <EventsCalendar events={events} />
+      ) : events.length === 0 ? (
         <EmptyState
           icon={CalendarDays}
           title="Nenhum evento encontrado"
@@ -125,10 +140,9 @@ export function EventsManager({
                   </TableHead>
                   <TableHead>Data</TableHead>
                   <TableHead className="hidden sm:table-cell">Valor</TableHead>
-                  <TableHead className="hidden lg:table-cell">
+                  <TableHead className="hidden sm:table-cell">
                     Pagamento
                   </TableHead>
-                  <TableHead>Status</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -189,11 +203,8 @@ export function EventsManager({
                           </span>
                         )}
                       </TableCell>
-                      <TableCell className="hidden lg:table-cell">
+                      <TableCell className="hidden sm:table-cell">
                         <PaymentStatusBadge status={ev.status_pagamento} />
-                      </TableCell>
-                      <TableCell>
-                        <EventStatusBadge status={ev.status_evento} />
                       </TableCell>
                     </TableRow>
                   );
