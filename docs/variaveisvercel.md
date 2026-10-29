@@ -18,9 +18,8 @@ O nome no painel do Supabase é diferente do nome da variável, e está certo
 assim.
 
 > Os usuários são criados direto no Supabase (Authentication → Users → Add
-> user), então **não** é preciso a variável `ALLOWED_SIGNUP_EMAILS`. Sem ela, a
-> aba "Criar conta" da tela de login recusa qualquer cadastro. Veja
-> [`novosupabase.md`](./novosupabase.md), passo 7.
+> user), então não existe variável de cadastro. Veja
+> [`criarconta.md`](./criarconta.md).
 
 ---
 

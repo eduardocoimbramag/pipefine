@@ -134,9 +134,10 @@ Acesse <http://localhost:3000>. Você será redirecionado para `/login`.
 
 ### 6. Criar os usuários (você, mãe, padrasto, irmã)
 
-Na tela de login, use a aba **"Criar conta"** para cada pessoa, **ou** crie pelo
-painel do Supabase em _Authentication → Users → Add user_. Um perfil em
-`users_profile` é criado automaticamente no primeiro cadastro/login (via trigger).
+As contas são criadas **somente** pelo painel do Supabase em
+_Authentication → Users → Add user_, marcando **Auto Confirm User** (passo a
+passo em [`docs/criarconta.md`](docs/criarconta.md)). Um perfil em
+`users_profile` é criado automaticamente quando a conta é criada (via trigger).
 Os papéis (Admin/Comercial/Operacional/Financeiro) podem ser ajustados em
 **Configurações** dentro do sistema.
 

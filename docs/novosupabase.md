@@ -142,9 +142,8 @@ NEXT_PUBLIC_SUPABASE_ANON_KEY=sb_publishable_xxxxxxxxxxxxxxxx
 SUPABASE_SERVICE_ROLE_KEY=sb_secret_xxxxxxxxxxxxxxxx
 ```
 
-Não coloque `ALLOWED_SIGNUP_EMAILS`: sem ela, a aba "Criar conta" da tela de
-login recusa todo cadastro, que é o que queremos (as contas são criadas no
-painel do Supabase).
+Só essas 3. As contas são criadas no painel do Supabase, então não existe
+variável de cadastro.
 
 O `.env.local` já está no `.gitignore` — ele **não** vai para o GitHub.
 
@@ -271,14 +270,8 @@ não misturou chave nova (`sb_...`) com legada (`eyJ...`). Na Vercel, lembre do
 As variáveis da Vercel ainda apontam para o projeto antigo, ou faltou o
 **Redeploy**.
 
-**"Este e-mail não está autorizado a criar uma conta."**
-Esperado: alguém tentou a aba "Criar conta" da tela de login, que fica
-fechada. Crie a conta pelo painel do Supabase (passo 7).
-
 **Criei a conta mas a pessoa não consegue entrar**
-Falta confirmar o e-mail. Em **Authentication → Users**, confira se o usuário
-está confirmado. Se não estiver, apague e recrie com **Auto Confirm User**
-marcado.
+Veja o diagnóstico passo a passo em [`criarconta.md`](./criarconta.md).
 
 **"Muitas tentativas de login. Tente novamente em X minuto(s)."**
 Bloqueio contra força bruta (5 erros por e-mail ou 20 por IP em 15 minutos).
