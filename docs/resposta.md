@@ -1,98 +1,88 @@
-# Como aplicar a migração 004 (`leads.relinked`) no Supabase
+# Precisa de todas essas variáveis na Vercel?
 
-**Resposta curta:** crie um **novo snippet** (uma _New query_ em branco) no SQL
-Editor do Supabase e cole o conteúdo do arquivo
-[`lib/sql/migrations/004_lead_relinked.sql`](../lib/sql/migrations/004_lead_relinked.sql).
-**Não** é para colar dentro de nada que já existe — cada migração é uma query
-independente. Pode rodar à vontade (é idempotente: rodar de novo não causa
-problema).
+**Não.** Você está certo: o Supabase só entrega **3 valores** (URL, Publishable e
+Secret). O código do Pipefine lê só **3 variáveis do Supabase**, mais 1 do
+próprio app.
 
 ---
 
-## Por que fazer isso
+## O que o código realmente usa
 
-Essa migração adiciona a coluna `relinked` na tabela `leads`. Ela é o marcador
-que garante que um lead criado pela opção **"Cliente antigo?"** **nunca** volte
-a aparecer em **"Leads Perdidos"**, mesmo que o cliente seja excluído do Banco
-de Clientes depois.
+Busquei todos os `process.env` do projeto. São só estes:
 
-> O sistema **funciona sem essa migração** (ele usa um filtro alternativo). Mas
-> aplicá-la deixa a regra 100% robusta. Recomendado rodar uma vez.
+| Variável | Valor do Supabase | Onde é usada |
+|---|---|---|
+| `NEXT_PUBLIC_SUPABASE_URL` | **URL** (`https://xxxx.supabase.co`) | Todos os clientes (`lib/supabase/*`) |
+| `NEXT_PUBLIC_SUPABASE_ANON_KEY` | **Publishable** (`sb_publishable_...`) | Navegador, servidor e proxy |
+| `SUPABASE_SERVICE_ROLE_KEY` | **Secret** (`sb_secret_...`) | Só no servidor, para o bloqueio de tentativas de login |
+| `ALLOWED_SIGNUP_EMAILS` | — (não é do Supabase) | Lista de e-mails que podem usar "Criar conta" |
 
----
-
-## Passo a passo (com prints mentais)
-
-1. Acesse o painel do projeto em **https://supabase.com/dashboard** e entre no
-   seu projeto (Pipefine).
-2. No menu da esquerda, clique em **SQL Editor** (ícone de banco de dados / `SQL`).
-3. Clique em **+ New query** (também aparece como **"New snippet"**) — isso abre
-   um editor **em branco**. É aqui que vai: **uma query nova, não em cima de
-   outra**.
-4. Abra o arquivo `lib/sql/migrations/004_lead_relinked.sql` (no projeto),
-   **copie tudo** e **cole** nesse editor em branco.
-5. Clique em **Run** (ou aperte `Ctrl + Enter`).
-6. Deve aparecer **"Success. No rows returned"** (ou algo parecido). Pronto.
+O nome da variável **não precisa** ser igual ao nome da chave no painel do
+Supabase. A Publishable vai em `NEXT_PUBLIC_SUPABASE_ANON_KEY` e a Secret vai
+em `SUPABASE_SERVICE_ROLE_KEY`, porque são esses os nomes que o código lê.
 
 ---
 
-## O que essa query faz, em palavras
+## O que pode ser apagado
 
-```sql
-alter table leads
-  add column if not exists relinked boolean not null default false;
+Nenhuma destas variáveis é lida pelo código:
 
-update leads
-set relinked = true
-where client_id is not null
-  and relinked = false;
-```
+- `SUPABASE_URL`
+- `SUPABASE_ANON_KEY`
+- `SUPABASE_PUBLISHABLE_KEY`
+- `SUPABASE_SECRET_KEY`
+- `SUPABASE_JWT_SECRET`
+- e as `POSTGRES_*` (`POSTGRES_URL`, `POSTGRES_PASSWORD`, etc.), se aparecerem
+  mais abaixo na lista
 
-- **Linha 1–2:** cria a coluna `relinked` (verdadeiro/falso, começa como `false`).
-  O `if not exists` garante que rodar de novo não dá erro.
-- **Linha restante:** marca como re-vinculados (`true`) os leads que já têm um
-  cliente ligado, para manter o histórico coerente.
+Elas não quebram nada, mas também não fazem nada. A `SUPABASE_JWT_SECRET` e as
+`POSTGRES_*` ainda dão acesso total ao banco **antigo**, então é melhor apagar.
 
 ---
 
-## "New snippet" ou colar no que já existe?
+## Por que tem tanta variável? (pode ser a chave do seu problema)
 
-| Situação | O que fazer |
-| --- | --- |
-| Aplicar a migração 004 | **New snippet / New query** (editor em branco) e colar |
-| Já tinha colado as migrações 002 e 003 antes | Mesma coisa: cada uma é uma query nova e separada |
-| Quer rodar de novo por garantia | Pode — é idempotente, não duplica nada |
+O ícone verde de raio ao lado de cada variável, com todas criadas no mesmo dia
+(**Jun 8**), mostra que elas **não foram digitadas à mão**. Elas foram criadas
+pela **integração Supabase da Vercel** (Vercel Marketplace). Essa integração
+cria todos esses nomes de uma vez, para servir a qualquer tipo de projeto.
 
-> **Regra geral:** no Supabase, cada arquivo `.sql` da pasta
-> `lib/sql/migrations/` é uma query independente. Sempre abra um snippet novo,
-> cole o arquivo inteiro e rode. Nunca precisa juntar com outra query nem editar
-> o `schema.sql`.
+Isso quer dizer que **o projeto Supabase antigo provavelmente foi criado pela
+Vercel**. Nesse caso, a conta pode estar ligada à **sua conta da Vercel**, e não
+a um e-mail que você digitou.
 
----
+**Antes de desistir dos dados, tente isto:**
 
-## Como confirmar que deu certo
+1. Vercel → aba **Storage** (ou **Integrations**) do time/projeto.
+2. Procure o banco Supabase ligado ao Pipefine.
+3. Clique em **Open in Supabase** (ou **Manage**). A Vercel abre o painel do
+   Supabase já logado, sem pedir e-mail.
+4. Também vale tentar entrar em <https://supabase.com/dashboard> com
+   **Continue with GitHub**, usando a conta `eduardocoimbramag`.
 
-Depois de rodar, você pode colar isto em **outro** snippet novo e rodar para
-conferir se a coluna existe:
-
-```sql
-select column_name, data_type, column_default
-from information_schema.columns
-where table_name = 'leads' and column_name = 'relinked';
-```
-
-Se aparecer **uma linha** com `relinked / boolean / false`, está aplicada. ✅
+Se der certo, você recupera o projeto antigo **com todos os dados** e não
+precisa seguir o [`novosupabase.md`](./novosupabase.md).
 
 ---
 
-## Migrações pendentes (visão geral)
+## Se mesmo assim for para o Supabase novo
 
-Se você ainda não rodou as anteriores, a ordem recomendada é:
+1. **Primeiro desconecte a integração antiga** (Vercel → Integrations →
+   Supabase → Remove/Disconnect). Variáveis gerenciadas pela integração podem
+   não deixar você editar ou apagar, ou voltar a ser preenchidas com os valores
+   antigos.
+2. Apague as variáveis que sobrarem da lista acima.
+3. Crie só estas 4, com os valores do projeto **novo**:
 
-1. `lib/sql/migrations/002_payment_installments.sql` — habilita as **parcelas /
-   formas de pagamento** no financeiro.
-2. `lib/sql/migrations/003_sync_followup_dates.sql` — acerta as **datas de
-   follow-up** de leads antigos.
-3. `lib/sql/migrations/004_lead_relinked.sql` — esta, do **"Cliente antigo?"**.
+   ```env
+   NEXT_PUBLIC_SUPABASE_URL=https://SEU-PROJETO.supabase.co
+   NEXT_PUBLIC_SUPABASE_ANON_KEY=sb_publishable_...
+   SUPABASE_SERVICE_ROLE_KEY=sb_secret_...
+   ALLOWED_SIGNUP_EMAILS=voce@gmail.com, mae@gmail.com
+   ```
 
-Cada uma: **New snippet → colar o arquivo → Run**.
+4. **Deployments → ⋯ → Redeploy.**
+
+> `ALLOWED_SIGNUP_EMAILS` é opcional. Se ficar vazia, ninguém consegue se
+> cadastrar pela tela do CRM, e os usuários são criados só pelo painel do
+> Supabase (Authentication → Users → Add user).
