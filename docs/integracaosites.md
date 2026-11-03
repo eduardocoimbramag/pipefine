@@ -3,6 +3,10 @@
 Como ligar o formulário de orçamento dos sites (Sofistic Buffet e Gran Dose) ao
 Supabase, para cada pedido virar uma **comanda** na aba **Orçamentos** do CRM.
 
+> Vai pedir para o Claude fazer o formulário nos sites? Use
+> [`formulariopadrao.md`](formulariopadrao.md): ele traz o passo a passo e a
+> especificação completa do formulário.
+
 ---
 
 ## Como funciona
