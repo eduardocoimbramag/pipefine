@@ -7,6 +7,7 @@ import type {
   FollowupRow,
   EventRow,
   PaymentInstallmentRow,
+  QuoteRequestRow,
   Database,
 } from "./database";
 
@@ -22,6 +23,7 @@ export type LeadInteraction = LeadInteractionRow;
 export type Followup = FollowupRow;
 export type EventItem = EventRow;
 export type PaymentInstallment = PaymentInstallmentRow;
+export type QuoteRequest = QuoteRequestRow;
 
 // Tipos de Insert/Update (atalhos)
 type Tables = Database["public"]["Tables"];
@@ -49,6 +51,10 @@ export type FollowupWithLead = Followup & {
 };
 
 export type EventWithRelations = EventItem & {
+  company: Pick<Company, "id" | "name"> | null;
+};
+
+export type QuoteWithCompany = QuoteRequest & {
   company: Pick<Company, "id" | "name"> | null;
 };
 

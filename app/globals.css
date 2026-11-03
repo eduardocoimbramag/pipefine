@@ -65,6 +65,13 @@
   --sidebar-accent-foreground: oklch(0.24 0.03 265);
   --sidebar-border: oklch(0.87 0.016 86);
   --sidebar-ring: oklch(0.21 0.03 265);
+
+  /* Comanda de orçamento — papel térmico e tinta (aba Orçamentos) */
+  --ticket-paper: oklch(0.99 0.008 95);
+  --ticket-ink: oklch(0.24 0.02 60);
+  --ticket-muted: oklch(0.5 0.02 70);
+  --ticket-rule: oklch(0.76 0.02 80);
+  --ticket-stamp: oklch(0.55 0.19 25);
 }
 
 .dark {
@@ -117,6 +124,13 @@
   --sidebar-accent-foreground: oklch(0.93 0.012 90);
   --sidebar-border: oklch(0.33 0.02 265);
   --sidebar-ring: oklch(0.8 0.015 88);
+
+  /* Papel continua papel no escuro, só um pouco menos brilhante */
+  --ticket-paper: oklch(0.93 0.018 88);
+  --ticket-ink: oklch(0.22 0.02 60);
+  --ticket-muted: oklch(0.44 0.02 70);
+  --ticket-rule: oklch(0.7 0.02 80);
+  --ticket-stamp: oklch(0.52 0.19 25);
 }
 
 @theme inline {
@@ -169,6 +183,12 @@
   --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
   --color-sidebar-border: var(--sidebar-border);
   --color-sidebar-ring: var(--sidebar-ring);
+
+  --color-ticket-paper: var(--ticket-paper);
+  --color-ticket-ink: var(--ticket-ink);
+  --color-ticket-muted: var(--ticket-muted);
+  --color-ticket-rule: var(--ticket-rule);
+  --color-ticket-stamp: var(--ticket-stamp);
 }
 
 @layer base {
@@ -243,5 +263,102 @@
   .login-aurora,
   .login-logo-float {
     animation: none;
+  }
+}
+
+/* ---------------------------------------------------------------------------
+   Orçamentos — comanda de restaurante (papel pendurado, borda serrilhada)
+--------------------------------------------------------------------------- */
+.comanda {
+  position: relative;
+  padding-top: 0.5rem; /* espaço para o prendedor */
+  transform: rotate(var(--tilt, 0deg));
+  /* drop-shadow (e não box-shadow) para a sombra seguir a borda serrilhada */
+  filter: drop-shadow(0 1px 1px rgb(0 0 0 / 0.08))
+    drop-shadow(0 8px 14px rgb(0 0 0 / 0.12));
+  transition:
+    transform 180ms ease,
+    filter 180ms ease;
+  animation: comanda-drop 260ms ease-out backwards;
+}
+
+.comanda:hover,
+.comanda:focus-within {
+  transform: rotate(0deg) translateY(-2px);
+  filter: drop-shadow(0 2px 2px rgb(0 0 0 / 0.1))
+    drop-shadow(0 14px 22px rgb(0 0 0 / 0.16));
+}
+
+.comanda-paper {
+  --zz: 7px; /* altura do dente da serrilha */
+  background-color: var(--ticket-paper);
+  /* textura sutil de papel térmico */
+  background-image: repeating-linear-gradient(
+    0deg,
+    transparent 0 3px,
+    rgb(0 0 0 / 0.014) 3px 4px
+  );
+  color: var(--ticket-ink);
+  padding-bottom: calc(var(--zz) + 1.25rem);
+  -webkit-mask: conic-gradient(
+      from -45deg at bottom,
+      #0000,
+      #000 1deg 89deg,
+      #0000 90deg
+    )
+    50% / calc(2 * var(--zz)) 100%;
+  mask: conic-gradient(from -45deg at bottom, #0000, #000 1deg 89deg, #0000 90deg)
+    50% / calc(2 * var(--zz)) 100%;
+}
+
+/* Prendedor metálico no topo da comanda */
+.comanda-clip {
+  position: absolute;
+  top: 0;
+  left: 50%;
+  z-index: 1;
+  width: 3.5rem;
+  height: 0.9rem;
+  transform: translateX(-50%);
+  border-radius: 0.25rem;
+  background: linear-gradient(
+    180deg,
+    oklch(0.93 0.005 260),
+    oklch(0.72 0.01 260) 55%,
+    oklch(0.62 0.01 260)
+  );
+  box-shadow:
+    inset 0 1px 0 rgb(255 255 255 / 0.6),
+    0 1px 2px rgb(0 0 0 / 0.25);
+}
+
+/* Carimbo "ENVIADO" */
+.comanda-stamp {
+  position: absolute;
+  top: 38%;
+  left: 50%;
+  transform: translate(-50%, -50%) rotate(-14deg);
+  border: 3px double var(--ticket-stamp);
+  border-radius: 0.35rem;
+  padding: 0.2rem 0.75rem;
+  color: var(--ticket-stamp);
+  text-align: center;
+  line-height: 1.15;
+  opacity: 0.82;
+  mix-blend-mode: multiply;
+  pointer-events: none;
+}
+
+@keyframes comanda-drop {
+  from {
+    opacity: 0;
+    transform: translateY(-10px) rotate(var(--tilt, 0deg));
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .comanda {
+    animation: none;
+    transition: none;
   }
 }

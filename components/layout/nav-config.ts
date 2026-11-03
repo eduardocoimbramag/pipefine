@@ -3,6 +3,7 @@ import {
   Users,
   CalendarCheck,
   CalendarDays,
+  ReceiptText,
   Wallet,
   HandCoins,
   Contact,
@@ -25,6 +26,7 @@ export const NAV_ITEMS: NavItem[] = [
   { label: "Leads", href: "/leads", icon: Users, mobile: true },
   { label: "Follow-ups", href: "/followups", icon: CalendarCheck, mobile: true },
   { label: "Eventos", href: "/eventos", icon: CalendarDays, mobile: true },
+  { label: "Orçamentos", href: "/orcamentos", icon: ReceiptText },
   { label: "Financeiro", href: "/financeiro", icon: Wallet, mobile: true },
   {
     label: "Acompanhamento de recebimentos",

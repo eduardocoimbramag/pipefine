@@ -12,6 +12,8 @@ import type {
   PaymentStatus,
   PaymentMethod,
   UserRole,
+  QuoteStatus,
+  QuoteSegment,
 } from "./enums";
 
 type Timestamps = {
@@ -140,6 +142,26 @@ export type LoginAttemptRow = Timestamps & {
   ip: string | null;
 };
 
+/** Pedido de orçamento recebido por um site (gravado via submit_quote_request). */
+export type QuoteRequestRow = Timestamps & {
+  id: string;
+  /** Número sequencial da comanda. */
+  numero: number;
+  company_id: string;
+  nome: string;
+  telefone: string | null;
+  email: string | null;
+  quantitativo: string | null;
+  segmento: QuoteSegment;
+  /** Só quando segmento = corporativo. */
+  nome_empresa: string | null;
+  tipo_evento: string | null;
+  descricao: string | null;
+  consentimento: boolean;
+  status: QuoteStatus;
+  enviado_em: string | null;
+};
+
 // ---------------------------------------------------------------------------
 // Helper para Insert/Update (campos auto-gerados ficam opcionais)
 // ---------------------------------------------------------------------------
@@ -219,6 +241,11 @@ export interface Database {
         LoginAttemptRow,
         Insert<LoginAttemptRow>,
         Update<LoginAttemptRow>
+      >;
+      quote_requests: TableDef<
+        QuoteRequestRow,
+        Insert<QuoteRequestRow, "numero" | "status" | "consentimento">,
+        Update<QuoteRequestRow>
       >;
     };
     Views: Record<string, { Row: Record<string, unknown>; Relationships: [] }>;

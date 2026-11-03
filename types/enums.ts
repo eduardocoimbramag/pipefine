@@ -266,6 +266,25 @@ export const PAYMENT_METHOD_DESCRIPTIONS: Record<PaymentMethod, string> = {
 };
 
 // ---------------------------------------------------------------------------
+// Pedidos de orçamento vindos dos sites (aba Orçamentos)
+// ---------------------------------------------------------------------------
+export const QUOTE_STATUSES = ["pendente", "enviado"] as const;
+export type QuoteStatus = (typeof QUOTE_STATUSES)[number];
+
+export const QUOTE_STATUS_LABELS: Record<QuoteStatus, string> = {
+  pendente: "Pendente",
+  enviado: "Enviado",
+};
+
+export const QUOTE_SEGMENTS = ["social", "corporativo"] as const;
+export type QuoteSegment = (typeof QUOTE_SEGMENTS)[number];
+
+export const QUOTE_SEGMENT_LABELS: Record<QuoteSegment, string> = {
+  social: "Social",
+  corporativo: "Corporativo",
+};
+
+// ---------------------------------------------------------------------------
 // Perfis de usuário
 // ---------------------------------------------------------------------------
 export const USER_ROLES = [

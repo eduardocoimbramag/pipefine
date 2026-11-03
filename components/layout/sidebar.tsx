@@ -6,7 +6,16 @@ import { cn } from "@/lib/utils";
 import { Logo } from "@/components/logo";
 import { NAV_ITEMS } from "./nav-config";
 
-export function SidebarNav({ onNavigate }: { onNavigate?: () => void }) {
+/** Contadores exibidos ao lado dos itens do menu, por href (ex.: "/orcamentos"). */
+export type NavCounts = Partial<Record<string, number>>;
+
+export function SidebarNav({
+  onNavigate,
+  counts,
+}: {
+  onNavigate?: () => void;
+  counts?: NavCounts;
+}) {
   const pathname = usePathname();
 
   return (
@@ -15,6 +24,7 @@ export function SidebarNav({ onNavigate }: { onNavigate?: () => void }) {
         const active =
           pathname === item.href || pathname.startsWith(item.href + "/");
         const Icon = item.icon;
+        const count = counts?.[item.href] ?? 0;
         return (
           <Link
             key={item.href}
@@ -29,6 +39,11 @@ export function SidebarNav({ onNavigate }: { onNavigate?: () => void }) {
           >
             <Icon className="h-[18px] w-[18px] shrink-0" />
             {item.label}
+            {count > 0 && (
+              <span className="ml-auto min-w-5 rounded-full bg-destructive px-1.5 text-center text-[11px] font-semibold leading-5 text-destructive-foreground tabular-nums">
+                {count > 99 ? "99+" : count}
+              </span>
+            )}
           </Link>
         );
       })}
@@ -48,11 +63,11 @@ export function SidebarBrand() {
 }
 
 /** Sidebar fixa (apenas desktop). */
-export function DesktopSidebar() {
+export function DesktopSidebar({ counts }: { counts?: NavCounts }) {
   return (
     <aside className="hidden w-64 shrink-0 flex-col border-r bg-sidebar lg:flex">
       <SidebarBrand />
-      <SidebarNav />
+      <SidebarNav counts={counts} />
       <div className="border-t px-5 py-3 text-xs text-muted-foreground">
         Central de Gestão
       </div>

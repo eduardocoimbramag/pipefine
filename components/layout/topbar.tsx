@@ -20,7 +20,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
-import { SidebarBrand, SidebarNav } from "./sidebar";
+import { SidebarBrand, SidebarNav, type NavCounts } from "./sidebar";
 import { CompanySwitcher } from "./company-switcher";
 import { signOut } from "@/app/login/actions";
 import {
@@ -40,10 +40,12 @@ export function Topbar({
   profile,
   companies,
   activeCompanyId,
+  navCounts,
 }: {
   profile: UserProfile;
   companies: Company[];
   activeCompanyId: string | null;
+  navCounts?: NavCounts;
 }) {
   const [open, setOpen] = useState(false);
   const [pending, start] = useTransition();
@@ -61,7 +63,7 @@ export function Topbar({
           <SheetContent side="left" className="p-0">
             <SheetTitle className="sr-only">Menu</SheetTitle>
             <SidebarBrand />
-            <SidebarNav onNavigate={() => setOpen(false)} />
+            <SidebarNav onNavigate={() => setOpen(false)} counts={navCounts} />
           </SheetContent>
         </Sheet>
         <Link
