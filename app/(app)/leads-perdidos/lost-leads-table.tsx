@@ -18,7 +18,7 @@ import { BulkDeleteBar } from "@/components/bulk-delete-bar";
 import { deleteLeadsBulk } from "@/app/actions/leads";
 import { formatDate } from "@/lib/date";
 import { cn } from "@/lib/utils";
-import type { LeadWithRelations } from "@/types";
+import { clientTypeLabel, type LeadWithRelations } from "@/types";
 
 export function LostLeadsTable({ leads }: { leads: LeadWithRelations[] }) {
   const [selecting, setSelecting] = useState(false);
@@ -84,6 +84,7 @@ export function LostLeadsTable({ leads }: { leads: LeadWithRelations[] }) {
                 </TableHead>
               )}
               <TableHead>Cliente</TableHead>
+              <TableHead>Tipo de cliente</TableHead>
               <TableHead className="hidden md:table-cell">Empresa</TableHead>
               <TableHead>Motivo da perda</TableHead>
               <TableHead className="hidden lg:table-cell">Evento</TableHead>
@@ -133,6 +134,9 @@ export function LostLeadsTable({ leads }: { leads: LeadWithRelations[] }) {
                         </span>
                       </Link>
                     )}
+                  </TableCell>
+                  <TableCell className="text-sm">
+                    {clientTypeLabel(lead)}
                   </TableCell>
                   <TableCell className="hidden md:table-cell text-sm text-muted-foreground">
                     {lead.company?.name ?? "—"}

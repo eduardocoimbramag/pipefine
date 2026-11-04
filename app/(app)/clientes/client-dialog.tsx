@@ -15,6 +15,7 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 import { Field } from "@/components/form/field";
+import { ClientSegmentFields } from "@/components/form/client-segment-fields";
 import {
   createClientRecord,
   updateClientRecord,
@@ -62,6 +63,13 @@ export function ClientDialog({ client }: { client?: Client }) {
           <Field label="Nome" htmlFor="name" required>
             <Input id="name" name="name" defaultValue={client?.name ?? ""} required />
           </Field>
+          <div className="grid grid-cols-2 gap-3">
+            <ClientSegmentFields
+              defaultSegmento={client?.segmento}
+              defaultNomeEmpresa={client?.nome_empresa}
+              idPrefix="client_"
+            />
+          </div>
           <div className="grid grid-cols-2 gap-3">
             <Field label="Telefone" htmlFor="phone">
               <Input id="phone" name="phone" defaultValue={client?.phone ?? ""} />

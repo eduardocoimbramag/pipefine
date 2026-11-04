@@ -14,11 +14,14 @@ import type {
   LeadUpdate,
   LeadStatus,
   LeadOrigin,
+  ClientSegment,
 } from "@/types";
 
 /** Extrai os campos do formulário de lead. */
 function parseLeadForm(formData: FormData) {
   const intPessoas = toNumberOrNull(formData.get("quantidade_pessoas"));
+  const segmento: ClientSegment =
+    formData.get("segmento") === "corporativo" ? "corporativo" : "social";
   return {
     company_id: String(formData.get("company_id") ?? ""),
     // Vínculo com um cliente já existente ("Cliente antigo?"). Quando presente,
@@ -26,6 +29,10 @@ function parseLeadForm(formData: FormData) {
     // nunca aparece em "Leads Perdidos".
     client_id: emptyToNull(formData.get("client_id")),
     nome_cliente: String(formData.get("nome_cliente") ?? "").trim(),
+    segmento,
+    // Nome da empresa do cliente só vale para corporativo.
+    nome_empresa:
+      segmento === "corporativo" ? emptyToNull(formData.get("nome_empresa")) : null,
     telefone: emptyToNull(formData.get("telefone")),
     email: emptyToNull(formData.get("email")),
     instagram: emptyToNull(formData.get("instagram")),
@@ -57,6 +64,8 @@ export async function createLead(
     if (!payload.company_id) return { ok: false, error: "Selecione a empresa." };
     if (!payload.nome_cliente)
       return { ok: false, error: "Informe o nome do cliente." };
+    if (payload.segmento === "corporativo" && !payload.nome_empresa)
+      return { ok: false, error: "Informe o nome da empresa." };
 
     // "Cliente antigo?": além do vínculo (client_id), grava o marcador imutável
     // `relinked` quando a coluna existe (migração 004). Assim o lead nunca volta
@@ -101,6 +110,8 @@ export async function updateLead(
     const payload = parseLeadForm(formData);
     if (!payload.nome_cliente)
       return { ok: false, error: "Informe o nome do cliente." };
+    if (payload.segmento === "corporativo" && !payload.nome_empresa)
+      return { ok: false, error: "Informe o nome da empresa." };
 
     // O vínculo com cliente é definido só na criação (re-link) e no fechamento.
     // Ao editar não mexemos nele, para não desvincular um lead já ligado.
@@ -240,6 +251,8 @@ export async function markLeadAsPotential(
           phone: lead.telefone,
           email: lead.email,
           instagram: lead.instagram,
+          segmento: lead.segmento,
+          nome_empresa: lead.nome_empresa,
         })
         .select("id")
         .single();

@@ -141,6 +141,8 @@ export async function closeLeadAsEvent(
           phone: lead.telefone,
           email: lead.email,
           instagram: lead.instagram,
+          segmento: lead.segmento,
+          nome_empresa: lead.nome_empresa,
         })
         .select("id")
         .single();
@@ -381,6 +383,8 @@ export async function convertLeadToEvent(leadId: string): Promise<void> {
         phone: lead.telefone,
         email: lead.email,
         instagram: lead.instagram,
+        segmento: lead.segmento,
+        nome_empresa: lead.nome_empresa,
       })
       .select("id")
       .single();

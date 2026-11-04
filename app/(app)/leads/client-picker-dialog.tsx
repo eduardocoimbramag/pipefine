@@ -10,6 +10,7 @@ import {
   DialogDescription,
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
+import type { ClientSegment } from "@/types";
 
 /** Opção mínima exibida no seletor de clientes antigos. */
 export interface ClientOption {
@@ -17,6 +18,8 @@ export interface ClientOption {
   name: string;
   phone: string | null;
   email: string | null;
+  segmento: ClientSegment;
+  nome_empresa: string | null;
 }
 
 /**

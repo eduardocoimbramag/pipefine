@@ -97,6 +97,9 @@ create table if not exists clients (
   email       text,
   instagram   text,
   notes       text,
+  -- Tipo de cliente (migração 007): social | corporativo (+ nome da empresa).
+  segmento     text not null default 'social' check (segmento in ('social', 'corporativo')),
+  nome_empresa text,
   created_at  timestamptz not null default now(),
   updated_at  timestamptz not null default now()
 );
@@ -111,6 +114,9 @@ create table if not exists leads (
   -- for excluído), garantindo que esses leads nunca apareçam em "Leads Perdidos".
   relinked                boolean not null default false,
   nome_cliente            text not null,
+  -- Tipo de cliente (migração 007): social | corporativo (+ nome da empresa).
+  segmento                text not null default 'social' check (segmento in ('social', 'corporativo')),
+  nome_empresa            text,
   telefone                text,
   email                   text,
   instagram               text,

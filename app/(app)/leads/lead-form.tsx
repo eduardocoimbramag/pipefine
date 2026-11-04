@@ -15,6 +15,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Field } from "@/components/form/field";
+import { ClientSegmentFields } from "@/components/form/client-segment-fields";
 import {
   ClientPickerDialog,
   type ClientOption,
@@ -66,6 +67,13 @@ export function LeadForm({
   const [nomeCliente, setNomeCliente] = useState(lead?.nome_cliente ?? "");
   const [telefone, setTelefone] = useState(lead?.telefone ?? "");
   const [email, setEmail] = useState(lead?.email ?? "");
+  // Tipo de cliente: valores iniciais (trocados ao escolher um cliente antigo;
+  // `segmentKey` remonta os campos para aplicar os novos valores).
+  const [segment, setSegment] = useState({
+    segmento: lead?.segmento ?? null,
+    nome_empresa: lead?.nome_empresa ?? null,
+  });
+  const [segmentKey, setSegmentKey] = useState(0);
 
   function toggleOldClient(checked: boolean) {
     setOldClient(checked);
@@ -85,6 +93,11 @@ export function LeadForm({
     setNomeCliente(client.name);
     setTelefone(client.phone ?? "");
     setEmail(client.email ?? "");
+    setSegment({
+      segmento: client.segmento,
+      nome_empresa: client.nome_empresa,
+    });
+    setSegmentKey((k) => k + 1);
     setPickerOpen(false);
   }
 
@@ -152,6 +165,12 @@ export function LeadForm({
             </SelectContent>
           </Select>
         </Field>
+
+        <ClientSegmentFields
+          key={segmentKey}
+          defaultSegmento={segment.segmento}
+          defaultNomeEmpresa={segment.nome_empresa}
+        />
 
         <Field label="Nome do cliente" htmlFor="nome_cliente" required>
           <Input

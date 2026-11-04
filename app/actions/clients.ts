@@ -4,11 +4,17 @@ import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { requireUser } from "@/lib/auth";
 import { emptyToNull } from "@/lib/utils";
-import type { ActionResult } from "@/types";
+import type { ActionResult, ClientSegment } from "@/types";
 
 function parseClientForm(formData: FormData) {
+  const segmento: ClientSegment =
+    formData.get("segmento") === "corporativo" ? "corporativo" : "social";
   return {
     name: String(formData.get("name") ?? "").trim(),
+    segmento,
+    // Nome da empresa do cliente só vale para corporativo.
+    nome_empresa:
+      segmento === "corporativo" ? emptyToNull(formData.get("nome_empresa")) : null,
     phone: emptyToNull(formData.get("phone")),
     email: emptyToNull(formData.get("email")),
     instagram: emptyToNull(formData.get("instagram")),
@@ -24,6 +30,8 @@ export async function createClientRecord(
     const supabase = await createClient();
     const payload = parseClientForm(formData);
     if (!payload.name) return { ok: false, error: "Informe o nome." };
+    if (payload.segmento === "corporativo" && !payload.nome_empresa)
+      return { ok: false, error: "Informe o nome da empresa." };
 
     const { data, error } = await supabase
       .from("clients")
@@ -48,6 +56,8 @@ export async function updateClientRecord(
     const supabase = await createClient();
     const payload = parseClientForm(formData);
     if (!payload.name) return { ok: false, error: "Informe o nome." };
+    if (payload.segmento === "corporativo" && !payload.nome_empresa)
+      return { ok: false, error: "Informe o nome da empresa." };
 
     const { error } = await supabase
       .from("clients")

@@ -21,6 +21,8 @@ export default async function NovoLeadPage() {
     name: c.name,
     phone: c.phone,
     email: c.email,
+    segmento: c.segmento,
+    nome_empresa: c.nome_empresa,
   }));
 
   return (

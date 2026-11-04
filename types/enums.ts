@@ -259,6 +259,27 @@ export const QUOTE_SEGMENT_LABELS: Record<QuoteSegment, string> = {
 };
 
 // ---------------------------------------------------------------------------
+// Tipo de cliente (leads e Banco de Clientes)
+// ---------------------------------------------------------------------------
+export const CLIENT_SEGMENTS = ["social", "corporativo"] as const;
+export type ClientSegment = (typeof CLIENT_SEGMENTS)[number];
+
+export const CLIENT_SEGMENT_LABELS: Record<ClientSegment, string> = {
+  social: "Social",
+  corporativo: "Corporativo",
+};
+
+/** Texto da coluna "Tipo de cliente": "Social" ou o nome da empresa. */
+export function clientTypeLabel(c: {
+  segmento?: ClientSegment | null;
+  nome_empresa?: string | null;
+}): string {
+  if (c.segmento === "corporativo")
+    return c.nome_empresa?.trim() || CLIENT_SEGMENT_LABELS.corporativo;
+  return CLIENT_SEGMENT_LABELS.social;
+}
+
+// ---------------------------------------------------------------------------
 // Perfis de usuário
 // ---------------------------------------------------------------------------
 export const USER_ROLES = [

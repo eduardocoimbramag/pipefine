@@ -6,7 +6,8 @@ import type { ComponentProps } from "react";
 /**
  * Provider do next-themes. Usa a estratégia por classe (`.dark` no <html>),
  * que é como os tokens estão definidos em globals.css. O tema padrão é
- * "system" (segue a preferência do SO até o usuário escolher manualmente).
+ * "light"; o escuro só entra se o usuário escolher em Configurações (a escolha
+ * fica salva no navegador e é mantida nas próximas visitas).
  */
 export function ThemeProvider({
   children,
@@ -15,8 +16,8 @@ export function ThemeProvider({
   return (
     <NextThemesProvider
       attribute="class"
-      defaultTheme="system"
-      enableSystem
+      defaultTheme="light"
+      enableSystem={false}
       disableTransitionOnChange
       {...props}
     >

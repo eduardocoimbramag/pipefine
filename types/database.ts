@@ -14,6 +14,7 @@ import type {
   UserRole,
   QuoteStatus,
   QuoteSegment,
+  ClientSegment,
 } from "./enums";
 
 type Timestamps = {
@@ -45,6 +46,9 @@ export type ClientRow = Timestamps & {
   email: string | null;
   instagram: string | null;
   notes: string | null;
+  segmento: ClientSegment;
+  /** Nome da empresa do cliente — só quando segmento = corporativo. */
+  nome_empresa: string | null;
 };
 
 export type LeadRow = Timestamps & {
@@ -54,6 +58,9 @@ export type LeadRow = Timestamps & {
   /** Lead criado a partir de um cliente já existente ("Cliente antigo?"). */
   relinked: boolean;
   nome_cliente: string;
+  segmento: ClientSegment;
+  /** Nome da empresa do cliente — só quando segmento = corporativo. */
+  nome_empresa: string | null;
   telefone: string | null;
   email: string | null;
   instagram: string | null;
@@ -204,10 +211,14 @@ export interface Database {
         Insert<UserProfileRow, "active" | "role">,
         Update<UserProfileRow>
       >;
-      clients: TableDef<ClientRow, Insert<ClientRow>, Update<ClientRow>>;
+      clients: TableDef<
+        ClientRow,
+        Insert<ClientRow, "segmento">,
+        Update<ClientRow>
+      >;
       leads: TableDef<
         LeadRow,
-        Insert<LeadRow, "status" | "relinked">,
+        Insert<LeadRow, "status" | "relinked" | "segmento">,
         Update<LeadRow>
       >;
       lead_interactions: TableDef<

@@ -18,6 +18,7 @@ import { BulkDeleteBar } from "@/components/bulk-delete-bar";
 import { ClientDialog } from "./client-dialog";
 import { deleteClientsBulk } from "@/app/actions/clients";
 import { cn } from "@/lib/utils";
+import { clientTypeLabel } from "@/types";
 import type { ClientWithTipos } from "@/lib/queries/clients";
 
 export function ClientsTable({ clients }: { clients: ClientWithTipos[] }) {
@@ -89,6 +90,7 @@ export function ClientsTable({ clients }: { clients: ClientWithTipos[] }) {
               )}
               <TableHead>Nome</TableHead>
               <TableHead className="hidden sm:table-cell">Telefone</TableHead>
+              <TableHead>Tipo de cliente</TableHead>
               <TableHead>Empresa</TableHead>
               <TableHead>Tipo de evento</TableHead>
             </TableRow>
@@ -130,6 +132,9 @@ export function ClientsTable({ clients }: { clients: ClientWithTipos[] }) {
                   </TableCell>
                   <TableCell className="hidden sm:table-cell text-sm text-muted-foreground">
                     {c.phone ?? "—"}
+                  </TableCell>
+                  <TableCell className="text-sm">
+                    {clientTypeLabel(c)}
                   </TableCell>
                   <TableCell className="text-sm">
                     {c.empresas.length > 0 ? (
