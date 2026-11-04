@@ -50,7 +50,7 @@ export function LeadForm({
   const [companyId, setCompanyId] = useState(
     lead?.company_id ?? defaultCompanyId ?? "",
   );
-  const [status, setStatus] = useState(lead?.status ?? "novo_lead");
+  const [status, setStatus] = useState(lead?.status ?? FUNNEL_STATUSES[0]);
   const [tipoEvento, setTipoEvento] = useState(lead?.tipo_evento ?? "");
 
   // "Cliente antigo?" — disponível apenas ao criar um lead novo. Ao marcar,

@@ -16,7 +16,16 @@ import {
   type DragStartEvent,
   type DragEndEvent,
 } from "@dnd-kit/core";
-import { Loader2, XCircle, CalendarClock, CheckCircle2 } from "lucide-react";
+import {
+  Loader2,
+  XCircle,
+  CalendarClock,
+  CheckCircle2,
+  Flag,
+  Star,
+  CircleAlert,
+  Hourglass,
+} from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -41,11 +50,16 @@ import { updateLeadStatus, markLeadAsPotential } from "@/app/actions/leads";
 import { closeLeadAsEvent } from "@/app/actions/events";
 import { generateInstallments } from "@/lib/installments";
 import { formatCurrency, moneyToFormValue, cn } from "@/lib/utils";
-import { formatDate, isOverdue, todayISO, addDaysISO } from "@/lib/date";
+import {
+  formatDate,
+  isOverdue,
+  isDateToday,
+  todayISO,
+  addDaysISO,
+} from "@/lib/date";
 import {
   KANBAN_COLUMNS,
-  KANBAN_LOST_COLUMN,
-  KANBAN_POTENTIAL_COLUMN,
+  KANBAN_CLOSED_COLUMN,
   STATUS_TO_COLUMN,
   COLUMN_DEFAULT_STATUS,
   type LeadWithRelations,
@@ -57,11 +71,7 @@ type BoardLeads = Record<string, LeadWithRelations[]>;
 /** Distribui os leads nas colunas a partir do status. */
 function groupLeads(leads: LeadWithRelations[]): BoardLeads {
   const board: BoardLeads = {};
-  for (const col of [
-    ...KANBAN_COLUMNS,
-    KANBAN_LOST_COLUMN,
-    KANBAN_POTENTIAL_COLUMN,
-  ])
+  for (const col of [...KANBAN_COLUMNS, KANBAN_CLOSED_COLUMN])
     board[col.id] = [];
   for (const lead of leads) {
     const colId = STATUS_TO_COLUMN[lead.status] ?? KANBAN_COLUMNS[0].id;
@@ -75,6 +85,12 @@ export function KanbanBoard({ leads }: { leads: LeadWithRelations[] }) {
   const [board, setBoard] = useState<BoardLeads>(() => groupLeads(leads));
   const [activeId, setActiveId] = useState<string | null>(null);
   const [, startTransition] = useTransition();
+
+  // Pop-up de desfecho ao mover para "Encerrado" (Fechado/Perdido/Potencial)
+  const [outcomeDialog, setOutcomeDialog] = useState<{
+    lead: LeadWithRelations;
+    fromColumn: string;
+  } | null>(null);
 
   // Diálogo de motivo de perda
   const [lossDialog, setLossDialog] = useState<{
@@ -170,7 +186,7 @@ export function KanbanBoard({ leads }: { leads: LeadWithRelations[] }) {
   }
 
   function persistPotential(lead: LeadWithRelations, fromColumn: string) {
-    moveCardInState(lead.id, fromColumn, KANBAN_POTENTIAL_COLUMN.id);
+    moveCardInState(lead.id, fromColumn, KANBAN_CLOSED_COLUMN.id);
     startTransition(async () => {
       const res = await markLeadAsPotential(lead.id);
       if (res.ok) {
@@ -205,40 +221,10 @@ export function KanbanBoard({ leads }: { leads: LeadWithRelations[] }) {
     const lead = board[fromColumn].find((l) => l.id === leadId);
     if (!lead) return;
 
-    // Mover para Perdido exige motivo → abre diálogo, não move ainda
-    if (toColumn === KANBAN_LOST_COLUMN.id) {
-      setMotivo(lead.motivo_perda ?? "");
-      setLossDialog({ lead, fromColumn });
-      return;
-    }
-
-    // Mover para "Fechado" abre o pop-up de marcação de evento.
-    // Não move ainda — o card sai do funil só ao concluir o pop-up.
-    if (toColumn === "fechado") {
-      const dataEv = lead.data_evento ?? todayISO();
-      const totalEv = Number(lead.valor_estimado) || 0;
-      setPlan({
-        method: "total",
-        installments: generateInstallments({
-          method: "total",
-          valorTotal: totalEv,
-          dataEvento: dataEv,
-          hoje: todayISO(),
-        }),
-      });
-      setEventForm({
-        data_evento: dataEv,
-        valor_total: totalEv,
-        local_evento: lead.local_evento ?? "",
-      });
-      setEventDialog({ lead });
-      return;
-    }
-
-    // Mover para "Potencial": cliente bom que não fechou agora. Ação direta —
-    // vira cliente no Banco de Clientes (sem evento) e sai do funil.
-    if (toColumn === KANBAN_POTENTIAL_COLUMN.id) {
-      persistPotential(lead, fromColumn);
+    // Mover para "Encerrado" abre o pop-up de desfecho. Não move ainda —
+    // cada desfecho cuida do próprio fluxo.
+    if (toColumn === KANBAN_CLOSED_COLUMN.id) {
+      setOutcomeDialog({ lead, fromColumn });
       return;
     }
 
@@ -248,6 +234,47 @@ export function KanbanBoard({ leads }: { leads: LeadWithRelations[] }) {
     // Pergunta o follow-up (com opção de pular). Sugestão: +2 dias.
     setFollowupDate(addDaysISO(2));
     setFollowupDialog({ lead, toColumn });
+  }
+
+  /** Desfecho escolhido no pop-up de "Encerrado". */
+  function chooseOutcome(outcome: "fechado" | "perdido" | "potencial") {
+    if (!outcomeDialog) return;
+    const { lead, fromColumn } = outcomeDialog;
+    setOutcomeDialog(null);
+
+    // Perdido exige motivo → abre diálogo, não move ainda
+    if (outcome === "perdido") {
+      setMotivo(lead.motivo_perda ?? "");
+      setLossDialog({ lead, fromColumn });
+      return;
+    }
+
+    // Potencial: cliente bom que não fechou agora. Ação direta — vira cliente
+    // no Banco de Clientes (sem evento) e sai do funil.
+    if (outcome === "potencial") {
+      persistPotential(lead, fromColumn);
+      return;
+    }
+
+    // Fechado abre o pop-up de marcação de evento. Não move ainda — o card
+    // sai do funil só ao concluir o pop-up.
+    const dataEv = lead.data_evento ?? todayISO();
+    const totalEv = Number(lead.valor_estimado) || 0;
+    setPlan({
+      method: "total",
+      installments: generateInstallments({
+        method: "total",
+        valorTotal: totalEv,
+        dataEvento: dataEv,
+        hoje: todayISO(),
+      }),
+    });
+    setEventForm({
+      data_evento: dataEv,
+      valor_total: totalEv,
+      local_evento: lead.local_evento ?? "",
+    });
+    setEventDialog({ lead });
   }
 
   function confirmCloseEvent() {
@@ -309,7 +336,7 @@ export function KanbanBoard({ leads }: { leads: LeadWithRelations[] }) {
     if (!lossDialog) return;
     setSavingLoss(true);
     const { lead, fromColumn } = lossDialog;
-    moveCardInState(lead.id, fromColumn, KANBAN_LOST_COLUMN.id);
+    moveCardInState(lead.id, fromColumn, KANBAN_CLOSED_COLUMN.id);
     startTransition(async () => {
       const res = await updateLeadStatus(lead.id, "perdido", motivo);
       setSavingLoss(false);
@@ -348,30 +375,15 @@ export function KanbanBoard({ leads }: { leads: LeadWithRelations[] }) {
           </Column>
         ))}
 
-        {/* Coluna de descarte */}
+        {/* Coluna final: soltar aqui abre o pop-up de desfecho. */}
         <Column
-          id={KANBAN_LOST_COLUMN.id}
-          label={KANBAN_LOST_COLUMN.label}
-          tone={KANBAN_LOST_COLUMN.tone}
-          count={board[KANBAN_LOST_COLUMN.id]?.length ?? 0}
+          id={KANBAN_CLOSED_COLUMN.id}
+          label={KANBAN_CLOSED_COLUMN.label}
+          tone={KANBAN_CLOSED_COLUMN.tone}
+          count={board[KANBAN_CLOSED_COLUMN.id]?.length ?? 0}
           muted
         >
-          {board[KANBAN_LOST_COLUMN.id]?.map((lead) => (
-            <KanbanCard key={lead.id} lead={lead} />
-          ))}
-        </Column>
-
-        {/* Coluna "Potencial": clientes bons que não fecharam agora →
-            vão para o Banco de Clientes (sem evento). */}
-        <Column
-          id={KANBAN_POTENTIAL_COLUMN.id}
-          label={KANBAN_POTENTIAL_COLUMN.label}
-          tone={KANBAN_POTENTIAL_COLUMN.tone}
-          count={board[KANBAN_POTENTIAL_COLUMN.id]?.length ?? 0}
-          badgeClassName="text-warning"
-          muted
-        >
-          {board[KANBAN_POTENTIAL_COLUMN.id]?.map((lead) => (
+          {board[KANBAN_CLOSED_COLUMN.id]?.map((lead) => (
             <KanbanCard key={lead.id} lead={lead} />
           ))}
         </Column>
@@ -380,6 +392,45 @@ export function KanbanBoard({ leads }: { leads: LeadWithRelations[] }) {
       <DragOverlay>
         {activeLead ? <KanbanCard lead={activeLead} overlay /> : null}
       </DragOverlay>
+
+      {/* Pop-up: desfecho do lead ao mover para "Encerrado" */}
+      <Dialog
+        open={!!outcomeDialog}
+        onOpenChange={(o) => {
+          if (!o) setOutcomeDialog(null);
+        }}
+      >
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Flag className="h-5 w-5 text-primary" /> Encerrar lead
+            </DialogTitle>
+            <DialogDescription>
+              {outcomeDialog?.lead.nome_cliente} — o que aconteceu com este
+              lead?
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="grid gap-2 sm:grid-cols-3">
+            <Button variant="success" onClick={() => chooseOutcome("fechado")}>
+              <CheckCircle2 className="h-4 w-4" /> Fechado
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={() => chooseOutcome("perdido")}
+            >
+              <XCircle className="h-4 w-4" /> Perdido
+            </Button>
+            <Button
+              variant="outline"
+              className="text-warning"
+              onClick={() => chooseOutcome("potencial")}
+            >
+              <Star className="h-4 w-4" /> Potencial
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
 
       {/* Diálogo de motivo de perda */}
       <Dialog
@@ -631,6 +682,7 @@ function KanbanCard({
     : undefined;
 
   const followupOverdue = isOverdue(lead.data_proximo_followup);
+  const followupToday = isDateToday(lead.data_proximo_followup);
 
   return (
     <div
@@ -639,14 +691,29 @@ function KanbanCard({
       {...attributes}
       {...listeners}
       className={cn(
-        "group cursor-grab touch-none rounded-lg border bg-card px-2.5 py-2 shadow-sm active:cursor-grabbing",
+        "group relative cursor-grab touch-none rounded-lg border bg-card px-2.5 py-2 shadow-sm active:cursor-grabbing",
         isDragging && !overlay && "opacity-40",
         overlay && "rotate-2 cursor-grabbing shadow-lg",
       )}
     >
+      {/* Indicador de follow-up: hoje (exclamação amarela) / atrasado (ampulheta vermelha) */}
+      {followupOverdue ? (
+        <Hourglass
+          className="absolute right-2 top-2 h-3.5 w-3.5 text-destructive"
+          aria-label="Follow-up atrasado"
+        />
+      ) : followupToday ? (
+        <CircleAlert
+          className="absolute right-2 top-2 h-3.5 w-3.5 text-warning"
+          aria-label="Follow-up hoje"
+        />
+      ) : null}
       <Link
         href={`/leads/${lead.id}`}
-        className="block truncate text-sm font-medium hover:underline"
+        className={cn(
+          "block truncate text-sm font-medium hover:underline",
+          (followupOverdue || followupToday) && "pr-5",
+        )}
         onClick={(e) => isDragging && e.preventDefault()}
       >
         {lead.nome_cliente}

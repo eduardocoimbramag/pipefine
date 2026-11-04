@@ -66,28 +66,25 @@ export interface KanbanColumn {
 
 export const KANBAN_COLUMNS: KanbanColumn[] = [
   {
-    id: "novos",
-    label: "Novos",
-    statuses: ["novo_lead"],
-    tone: "info",
-  },
-  {
     id: "contato",
     label: "Em contato",
-    statuses: ["contato_iniciado", "briefing_solicitado"],
+    // `novo_lead` (legado) também cai aqui; o drop aplica `contato_iniciado`.
+    statuses: ["contato_iniciado", "briefing_solicitado", "novo_lead"],
     tone: "info",
   },
   {
     id: "orcamento",
     label: "Orçamento",
-    statuses: ["orcamento_pendente", "orcamento_enviado"],
+    // Status de acompanhamento (legado) também caem aqui.
+    statuses: [
+      "orcamento_pendente",
+      "orcamento_enviado",
+      "aguardando_retorno",
+      "followup_1",
+      "followup_2",
+      "sem_resposta",
+    ],
     tone: "purple",
-  },
-  {
-    id: "followup",
-    label: "Acompanhamento",
-    statuses: ["aguardando_retorno", "followup_1", "followup_2", "sem_resposta"],
-    tone: "warning",
   },
   {
     id: "negociacao",
@@ -95,68 +92,45 @@ export const KANBAN_COLUMNS: KanbanColumn[] = [
     statuses: ["negociacao"],
     tone: "purple",
   },
-  {
-    id: "fechado",
-    label: "Fechado",
-    statuses: ["fechado"],
-    tone: "success",
-  },
 ];
 
-/** Coluna especial de descarte (renderizada como zona de soltar à parte). */
-export const KANBAN_LOST_COLUMN: KanbanColumn = {
-  id: "perdido",
-  label: "Perdido",
-  statuses: ["perdido"],
-  tone: "destructive",
-};
-
 /**
- * Coluna especial "Potencial": clientes muito bons que não fecharam agora.
- * Renderizada à direita de "Perdido". É uma ZONA DE AÇÃO (não um balde fixo):
- * ao soltar, o lead vira cliente no Banco de Clientes (sem evento) e sai do
- * funil; NÃO vai para "Leads Perdidos". Por isso `statuses` é vazio — nenhum
- * status de lead persiste nesta coluna.
+ * Coluna final "Encerrado": ZONA DE AÇÃO. Ao soltar, abre um pop-up para
+ * escolher o desfecho — Fechado (vira evento), Perdido (pede motivo) ou
+ * Potencial (vira cliente sem evento). Leads fechados/perdidos saem do funil,
+ * mas se aparecerem no board ficam nesta coluna.
  */
-export const KANBAN_POTENTIAL_COLUMN: KanbanColumn = {
-  id: "potencial",
-  label: "Potencial",
-  statuses: [],
-  tone: "warning",
+export const KANBAN_CLOSED_COLUMN: KanbanColumn = {
+  id: "encerrado",
+  label: "Encerrado",
+  statuses: ["fechado", "perdido"],
+  tone: "neutral",
 };
 
-/** Colunas especiais (zonas de soltar à parte) renderizadas após o funil. */
-const KANBAN_SPECIAL_COLUMNS = [KANBAN_LOST_COLUMN, KANBAN_POTENTIAL_COLUMN];
-
-/** Mapa status → id da coluna a que pertence (inclui Perdido e Potencial). */
+/** Mapa status → id da coluna a que pertence (inclui Encerrado). */
 export const STATUS_TO_COLUMN: Record<LeadStatus, string> = (() => {
   const map = {} as Record<LeadStatus, string>;
-  for (const col of [...KANBAN_COLUMNS, ...KANBAN_SPECIAL_COLUMNS]) {
+  for (const col of [...KANBAN_COLUMNS, KANBAN_CLOSED_COLUMN]) {
     for (const s of col.statuses) map[s] = col.id;
   }
   return map;
 })();
 
-/**
- * Status padrão aplicado ao soltar um card numa coluna. Colunas-ação sem status
- * próprio (ex.: "Potencial") são ignoradas — seu drop é tratado à parte.
- */
+/** Status padrão aplicado ao soltar um card numa coluna do funil. */
 export const COLUMN_DEFAULT_STATUS: Record<string, LeadStatus> = (() => {
   const map: Record<string, LeadStatus> = {};
-  for (const col of [...KANBAN_COLUMNS, ...KANBAN_SPECIAL_COLUMNS]) {
-    if (col.statuses[0]) map[col.id] = col.statuses[0];
-  }
+  for (const col of KANBAN_COLUMNS) map[col.id] = col.statuses[0];
   return map;
 })();
 
 /**
  * Status do funil para seleção (1 por coluna do Kanban), usado no formulário de
- * novo lead e no filtro de status da lista. Exclui "Fechado" (vira evento via
- * pop-up) e "Perdido" (tem aba própria).
+ * novo lead e no filtro de status da lista. "Encerrado" fica de fora (desfecho
+ * escolhido via pop-up).
  */
-export const FUNNEL_STATUSES: LeadStatus[] = KANBAN_COLUMNS.filter(
-  (c) => c.id !== "fechado",
-).map((c) => c.statuses[0]);
+export const FUNNEL_STATUSES: LeadStatus[] = KANBAN_COLUMNS.map(
+  (c) => c.statuses[0],
+);
 
 export const LEAD_ORIGINS = [
   "instagram",

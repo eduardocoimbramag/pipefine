@@ -1,5 +1,6 @@
 import { createClient } from "@/lib/supabase/server";
 import { relinkFeatureAvailable } from "@/lib/leads.server";
+import { todayISO } from "@/lib/date";
 import type {
   Lead,
   LeadWithRelations,
@@ -24,6 +25,26 @@ const LEAD_SELECT = `
   company:companies ( id, name ),
   responsavel:users_profile!leads_responsavel_id_fkey ( id, full_name )
 `;
+
+/**
+ * Conta leads do funil (exclui perdidos/fechados) com follow-up atrasado
+ * (data anterior a hoje). Usado no badge da aba Leads.
+ */
+export async function getOverdueFollowupLeadCount(
+  companyId?: string,
+): Promise<number> {
+  const supabase = await createClient();
+  let query = supabase
+    .from("leads")
+    .select("id", { count: "exact", head: true })
+    .not("status", "in", "(perdido,fechado)")
+    .lt("data_proximo_followup", todayISO());
+  if (companyId) query = query.eq("company_id", companyId);
+
+  const { count, error } = await query;
+  if (error) return 0;
+  return count ?? 0;
+}
 
 /** Lista leads com filtros e busca. Exclui os perdidos por padrão. */
 export async function getLeads(

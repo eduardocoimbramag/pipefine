@@ -9,8 +9,6 @@ import {
   getRecebimentosSummary,
   type InstallmentWithEvent,
 } from "@/lib/queries/recebimentos";
-import { getActiveCompanyContext } from "@/lib/active-company";
-import { PageHeader } from "@/components/page-header";
 import { StatCard } from "@/components/stat-card";
 import { EmptyState } from "@/components/empty-state";
 import { Card } from "@/components/ui/card";
@@ -25,9 +23,6 @@ import {
 import { formatCurrency } from "@/lib/utils";
 import { formatDate, formatMonthYear, isOverdue } from "@/lib/date";
 import { ConfirmPaymentButton } from "./confirm-payment-button";
-
-export const metadata = { title: "Acompanhamento de recebimentos — Pipefine" };
-export const dynamic = "force-dynamic";
 
 function InstallmentsTable({
   installments,
@@ -107,24 +102,27 @@ function InstallmentsTable({
   );
 }
 
-export default async function RecebimentosPage() {
-  const { activeCompanyId, activeCompany } = await getActiveCompanyContext();
-
-  const summary = await getRecebimentosSummary(activeCompanyId ?? undefined);
+/**
+ * Seção "Acompanhamento de recebimentos" exibida no fim da página Financeiro:
+ * métricas do mês, parcelas atrasadas e parcelas do mês vigente.
+ */
+export async function RecebimentosSection({
+  companyId,
+}: {
+  companyId?: string;
+}) {
+  const summary = await getRecebimentosSummary(companyId);
 
   const mesLabel = formatMonthYear(new Date());
 
   return (
-    <div className="space-y-6">
-      <PageHeader
-        title="Acompanhamento de recebimentos"
-        description={
-          activeCompany
-            ? `${activeCompany.name} · parcelas a receber e recebidas`
-            : "Parcelas a receber, recebidas e em atraso."
-        }
-      />
-
+    <section id="recebimentos" className="space-y-4 scroll-mt-20">
+      <div>
+        <h2 className="text-lg font-semibold">Acompanhamento de recebimentos</h2>
+        <p className="text-sm text-muted-foreground">
+          Parcelas a receber, recebidas e em atraso.
+        </p>
+      </div>
       {/* Métricas */}
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
         <StatCard
@@ -182,6 +180,6 @@ export default async function RecebimentosPage() {
           <InstallmentsTable installments={summary.doMes} />
         )}
       </section>
-    </div>
+    </section>
   );
 }

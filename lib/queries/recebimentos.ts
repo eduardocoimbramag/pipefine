@@ -47,6 +47,29 @@ const EMPTY: RecebimentosSummary = {
 };
 
 /**
+ * Conta parcelas pendentes já vencidas (vencimento < hoje) da empresa em foco.
+ * Usado no badge da aba Financeiro.
+ */
+export async function getOverdueInstallmentCount(
+  companyId?: string,
+): Promise<number> {
+  const supabase = await createClient();
+  let query = supabase
+    .from("payment_installments")
+    .select(companyId ? "id, events!inner ( company_id )" : "id", {
+      count: "exact",
+      head: true,
+    })
+    .eq("pago", false)
+    .lt("data_vencimento", todayISO());
+  if (companyId) query = query.eq("events.company_id", companyId);
+
+  const { count, error } = await query;
+  if (error) return 0;
+  return count ?? 0;
+}
+
+/**
  * Dados do painel de acompanhamento de recebimentos, escopados pela empresa
  * em foco (`companyId`). Lê as parcelas (payment_installments) e as agrupa em
  * atrasadas e do mês vigente, somando os totais por categoria.

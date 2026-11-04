@@ -24,6 +24,7 @@ import {
   FaturamentoPorEmpresaChart,
   RecebidoVsPendenteChart,
 } from "./finance-charts";
+import { RecebimentosSection } from "./recebimentos-section";
 import { formatCurrency } from "@/lib/utils";
 
 export const metadata = { title: "Financeiro — Pipefine" };
@@ -162,6 +163,9 @@ export default async function FinanceiroPage({
           </CardContent>
         </Card>
       </div>
+
+      {/* Acompanhamento de recebimentos (parcelas) */}
+      <RecebimentosSection companyId={effectiveCompanyId} />
     </div>
   );
 }

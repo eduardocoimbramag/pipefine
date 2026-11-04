@@ -2,6 +2,8 @@ import { redirect } from "next/navigation";
 import { getCurrentProfile } from "@/lib/auth";
 import { getActiveCompanyContext } from "@/lib/active-company";
 import { getPendingQuoteCount } from "@/lib/queries/quotes";
+import { getOverdueFollowupLeadCount } from "@/lib/queries/leads";
+import { getOverdueInstallmentCount } from "@/lib/queries/recebimentos";
 import { DesktopSidebar } from "@/components/layout/sidebar";
 import { Topbar } from "@/components/layout/topbar";
 import { MobileBottomNav } from "@/components/layout/mobile-nav";
@@ -15,10 +17,17 @@ export default async function AppLayout({
   if (!profile) redirect("/login");
 
   const { companies, activeCompanyId } = await getActiveCompanyContext();
-  const pendingQuotes = await getPendingQuoteCount(
-    activeCompanyId ?? undefined,
-  );
-  const navCounts = { "/orcamentos": pendingQuotes };
+  const [pendingQuotes, overdueFollowups, overdueInstallments] =
+    await Promise.all([
+      getPendingQuoteCount(activeCompanyId ?? undefined),
+      getOverdueFollowupLeadCount(activeCompanyId ?? undefined),
+      getOverdueInstallmentCount(activeCompanyId ?? undefined),
+    ]);
+  const navCounts = {
+    "/leads": overdueFollowups,
+    "/orcamentos": pendingQuotes,
+    "/financeiro": overdueInstallments,
+  };
 
   return (
     <div className="flex min-h-screen bg-background">

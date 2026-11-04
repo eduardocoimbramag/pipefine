@@ -315,7 +315,6 @@ export async function deleteEvent(id: string): Promise<ActionResult> {
     if (error) throw error;
     revalidatePath("/eventos");
     revalidatePath("/financeiro");
-    revalidatePath("/recebimentos");
     revalidatePath("/dashboard");
     return { ok: true, message: "Evento excluído." };
   } catch (e) {
@@ -342,7 +341,6 @@ export async function deleteEventsBulk(
 
     revalidatePath("/eventos");
     revalidatePath("/financeiro");
-    revalidatePath("/recebimentos");
     revalidatePath("/dashboard");
     return {
       ok: true,
@@ -460,7 +458,6 @@ export async function toggleInstallmentPaid(
     revalidatePath(`/eventos/${eventId}`);
     revalidatePath("/eventos");
     revalidatePath("/financeiro");
-    revalidatePath("/recebimentos");
     revalidatePath("/dashboard");
     return {
       ok: true,
