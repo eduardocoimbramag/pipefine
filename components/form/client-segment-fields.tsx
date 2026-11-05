@@ -18,7 +18,8 @@ import {
 
 /**
  * Campos "Tipo de cliente" (Social / Corporativo) + "Nome da empresa" (só
- * quando corporativo). Envia `segmento` e `nome_empresa` no FormData.
+ * quando corporativo; opcional — vazio, a coluna exibe "Corporativo").
+ * Envia `segmento` e `nome_empresa` no FormData.
  * Use dentro de um grid de 2 colunas: cada campo ocupa uma célula.
  */
 export function ClientSegmentFields({
@@ -61,13 +62,12 @@ export function ClientSegmentFields({
         <Field
           label="Nome da empresa"
           htmlFor={`${idPrefix}nome_empresa`}
-          required
         >
           <Input
             id={`${idPrefix}nome_empresa`}
             name="nome_empresa"
             defaultValue={defaultNomeEmpresa ?? ""}
-            required
+            placeholder="Opcional"
           />
         </Field>
       )}

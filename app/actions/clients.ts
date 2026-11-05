@@ -30,8 +30,6 @@ export async function createClientRecord(
     const supabase = await createClient();
     const payload = parseClientForm(formData);
     if (!payload.name) return { ok: false, error: "Informe o nome." };
-    if (payload.segmento === "corporativo" && !payload.nome_empresa)
-      return { ok: false, error: "Informe o nome da empresa." };
 
     const { data, error } = await supabase
       .from("clients")
@@ -56,8 +54,6 @@ export async function updateClientRecord(
     const supabase = await createClient();
     const payload = parseClientForm(formData);
     if (!payload.name) return { ok: false, error: "Informe o nome." };
-    if (payload.segmento === "corporativo" && !payload.nome_empresa)
-      return { ok: false, error: "Informe o nome da empresa." };
 
     const { error } = await supabase
       .from("clients")

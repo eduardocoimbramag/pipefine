@@ -64,8 +64,6 @@ export async function createLead(
     if (!payload.company_id) return { ok: false, error: "Selecione a empresa." };
     if (!payload.nome_cliente)
       return { ok: false, error: "Informe o nome do cliente." };
-    if (payload.segmento === "corporativo" && !payload.nome_empresa)
-      return { ok: false, error: "Informe o nome da empresa." };
 
     // "Cliente antigo?": além do vínculo (client_id), grava o marcador imutável
     // `relinked` quando a coluna existe (migração 004). Assim o lead nunca volta
@@ -110,8 +108,6 @@ export async function updateLead(
     const payload = parseLeadForm(formData);
     if (!payload.nome_cliente)
       return { ok: false, error: "Informe o nome do cliente." };
-    if (payload.segmento === "corporativo" && !payload.nome_empresa)
-      return { ok: false, error: "Informe o nome da empresa." };
 
     // O vínculo com cliente é definido só na criação (re-link) e no fechamento.
     // Ao editar não mexemos nele, para não desvincular um lead já ligado.
