@@ -1,7 +1,6 @@
 import {
   LayoutDashboard,
   Users,
-  CalendarCheck,
   CalendarDays,
   ReceiptText,
   Wallet,
@@ -23,9 +22,8 @@ export interface NavItem {
 export const NAV_ITEMS: NavItem[] = [
   { label: "Dashboard", href: "/dashboard", icon: LayoutDashboard, mobile: true },
   { label: "Leads", href: "/leads", icon: Users, mobile: true },
-  { label: "Follow-ups", href: "/followups", icon: CalendarCheck, mobile: true },
   { label: "Eventos", href: "/eventos", icon: CalendarDays, mobile: true },
-  { label: "Orçamentos", href: "/orcamentos", icon: ReceiptText },
+  { label: "Orçamentos", href: "/orcamentos", icon: ReceiptText, mobile: true },
   { label: "Financeiro", href: "/financeiro", icon: Wallet, mobile: true },
   { label: "Banco de Clientes", href: "/clientes", icon: Contact },
   { label: "Leads perdidos", href: "/leads-perdidos", icon: UserX },

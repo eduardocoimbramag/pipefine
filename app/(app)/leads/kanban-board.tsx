@@ -45,6 +45,7 @@ import {
   PaymentPlanEditor,
   type PaymentPlanValue,
 } from "@/components/payment-plan-editor";
+import { LeadCardMenu } from "./lead-card-menu";
 import { FollowupDuePicker } from "@/components/followup-due-picker";
 import { updateLeadStatus, markLeadAsPotential } from "@/app/actions/leads";
 import { closeLeadAsEvent } from "@/app/actions/events";
@@ -355,6 +356,7 @@ export function KanbanBoard({ leads }: { leads: LeadWithRelations[] }) {
 
   return (
     <DndContext
+      id="kanban-board"
       sensors={sensors}
       collisionDetection={closestCorners}
       onDragStart={onDragStart}
@@ -696,23 +698,33 @@ function KanbanCard({
         overlay && "rotate-2 cursor-grabbing shadow-lg",
       )}
     >
-      {/* Indicador de follow-up: hoje (exclamação amarela) / atrasado (ampulheta vermelha) */}
-      {followupOverdue ? (
-        <Hourglass
-          className="absolute right-2 top-2 h-3.5 w-3.5 text-destructive"
-          aria-label="Follow-up atrasado"
-        />
-      ) : followupToday ? (
-        <CircleAlert
-          className="absolute right-2 top-2 h-3.5 w-3.5 text-warning"
-          aria-label="Follow-up hoje"
-        />
-      ) : null}
+      {/* Canto superior direito: indicador de follow-up (hoje: amarelo /
+          atrasado: vermelho) à esquerda do menu "⋮". */}
+      {!overlay && (
+        <div className="absolute right-1 top-1 flex items-center gap-0.5">
+          {followupOverdue ? (
+            <Hourglass
+              className="h-3.5 w-3.5 text-destructive"
+              aria-label="Follow-up atrasado"
+            />
+          ) : followupToday ? (
+            <CircleAlert
+              className="h-3.5 w-3.5 text-warning"
+              aria-label="Follow-up hoje"
+            />
+          ) : null}
+          <LeadCardMenu
+            leadId={lead.id}
+            nome={lead.nome_cliente}
+            followupDate={lead.data_proximo_followup}
+          />
+        </div>
+      )}
       <Link
         href={`/leads/${lead.id}`}
         className={cn(
           "block truncate text-sm font-medium hover:underline",
-          (followupOverdue || followupToday) && "pr-5",
+          !overlay && (followupOverdue || followupToday ? "pr-12" : "pr-7"),
         )}
         onClick={(e) => isDragging && e.preventDefault()}
       >

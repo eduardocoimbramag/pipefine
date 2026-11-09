@@ -52,6 +52,52 @@ export async function createFollowup(
   }
 }
 
+/**
+ * Define a data do follow-up pendente do lead (usado pelo menu do card do
+ * Kanban). Reagenda o pendente mantendo título/descrição; se não houver,
+ * cria um novo (regra: 1 follow-up ativo por lead).
+ */
+export async function setLeadFollowupDate(
+  leadId: string,
+  data_vencimento: string,
+): Promise<ActionResult> {
+  try {
+    await requireUser();
+    if (!data_vencimento)
+      return { ok: false, error: "Informe a data do follow-up." };
+    const supabase = await createClient();
+
+    const { data: existente, error: selErr } = await supabase
+      .from("followups")
+      .select("id")
+      .eq("lead_id", leadId)
+      .eq("status", "pendente")
+      .order("data_vencimento", { ascending: true })
+      .limit(1)
+      .maybeSingle();
+    if (selErr) throw selErr;
+
+    if (existente) {
+      const { error } = await supabase
+        .from("followups")
+        .update({ data_vencimento })
+        .eq("id", existente.id);
+      if (error) throw error;
+      await syncLeadNextFollowup(leadId);
+    } else {
+      await upsertFollowupForLead(leadId, {
+        titulo: "Follow-up",
+        data_vencimento,
+      });
+    }
+
+    revalidateFollowupViews(leadId);
+    return { ok: true, message: "Follow-up atualizado." };
+  } catch (e) {
+    return { ok: false, error: errMsg(e) };
+  }
+}
+
 /** Edita um follow-up existente (título, descrição e vencimento). */
 export async function updateFollowup(
   id: string,
