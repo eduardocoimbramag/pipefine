@@ -568,13 +568,13 @@ begin
     return json_build_object('comanda', v_numero, 'duplicado', true);
   end if;
 
-  -- Limite por empresa: no máximo 30 pedidos do casamentos.com por hora.
+  -- Limite por empresa: no máximo 200 pedidos do casamentos.com por hora.
   if (
     select count(*) from quote_requests q
     where q.company_id = p_company_id
       and q.origem = 'casamentos.com'
       and q.created_at > now() - interval '1 hour'
-  ) >= 30 then
+  ) >= 200 then
     raise exception 'Muitos pedidos em pouco tempo. Tente novamente mais tarde.' using errcode = '22023';
   end if;
 

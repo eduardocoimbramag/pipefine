@@ -118,7 +118,7 @@ este:
 | `400` — "Informe a referência externa (p_ref_externa)." | `p_ref_externa` vazia |
 | `400` — "E-mail inválido." | E-mail fora do formato |
 | `400` — "Algum campo passou do tamanho máximo." | Algum limite da tabela de parâmetros foi ultrapassado |
-| `400` — "Muitos pedidos em pouco tempo..." | Mais de 30 pedidos do casamentos.com nesta empresa na última hora |
+| `400` — "Muitos pedidos em pouco tempo..." | Mais de 200 pedidos do casamentos.com nesta empresa na última hora |
 | `400` — "Empresa inválida." | ID da empresa errado ou empresa desativada em Configurações |
 | `400` — código `22007` / `22008` | `p_data_evento` fora do formato `AAAA-MM-DD` |
 | `401` — Invalid API key | Chave errada |
