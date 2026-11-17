@@ -167,6 +167,12 @@ export type QuoteRequestRow = Timestamps & {
   consentimento: boolean;
   status: QuoteStatus;
   enviado_em: string | null;
+  /** 'site' (formulário) ou 'casamentos.com' (agentes de e-mail). */
+  origem: string;
+  /** Data do evento (AAAA-MM-DD), quando informada. */
+  data_evento: string | null;
+  /** Message-ID do e-mail (anti-duplicado). Null nos pedidos do site. */
+  ref_externa: string | null;
 };
 
 // ---------------------------------------------------------------------------
@@ -255,7 +261,7 @@ export interface Database {
       >;
       quote_requests: TableDef<
         QuoteRequestRow,
-        Insert<QuoteRequestRow, "numero" | "status" | "consentimento">,
+        Insert<QuoteRequestRow, "numero" | "status" | "consentimento" | "origem">,
         Update<QuoteRequestRow>
       >;
     };

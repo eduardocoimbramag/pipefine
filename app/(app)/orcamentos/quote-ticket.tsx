@@ -2,7 +2,7 @@ import { Courier_Prime } from "next/font/google";
 import { differenceInHours, formatDistanceToNowStrict } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { cn } from "@/lib/utils";
-import { formatDateTime } from "@/lib/date";
+import { formatDate, formatDateTime } from "@/lib/date";
 import { QUOTE_SEGMENT_LABELS, type QuoteWithCompany } from "@/types";
 
 // Fonte de impressora térmica — só para as comandas.
@@ -18,6 +18,12 @@ const TILTS = [-1.1, 0.7, -0.4, 1, -0.7, 0.3];
 /** Horas na fila a partir das quais a comanda fica em destaque. */
 const WAIT_WARNING_HOURS = 24;
 const WAIT_URGENT_HOURS = 48;
+
+/** Origem gravada pela função submit_casamentos_request. */
+const ORIGEM_CASAMENTOS = "casamentos.com";
+
+/** Texto para campos que o cliente não preencheu. */
+const NAO_INFORMADO = "Não informado";
 
 /** Nº 0042 */
 export function formatQuoteNumber(numero: number): string {
@@ -71,6 +77,7 @@ export function QuoteTicket({
   const horasNaFila = differenceInHours(new Date(), new Date(quote.created_at));
   const tilt = TILTS[quote.numero % TILTS.length];
   const whatsapp = whatsappUrl(quote.telefone);
+  const casamentos = quote.origem === ORIGEM_CASAMENTOS;
 
   return (
     <div
@@ -98,6 +105,13 @@ export function QuoteTicket({
           <p className="mt-1 text-[11px] text-ticket-muted">
             Recebida em {formatDateTime(quote.created_at)}
           </p>
+          {casamentos && (
+            <p className="mt-2">
+              <span className="inline-block -rotate-2 border-2 border-double border-ticket-stamp px-2 text-[11px] font-bold uppercase leading-5 tracking-wider text-ticket-stamp">
+                casamentos.com
+              </span>
+            </p>
+          )}
         </header>
 
         <Rule />
@@ -122,7 +136,7 @@ export function QuoteTicket({
                 quote.telefone
               )
             ) : (
-              "—"
+              NAO_INFORMADO
             )}
           </Field>
           <Field label="E-mail">
@@ -134,7 +148,7 @@ export function QuoteTicket({
                 {quote.email}
               </a>
             ) : (
-              "—"
+              NAO_INFORMADO
             )}
           </Field>
         </dl>
@@ -152,7 +166,12 @@ export function QuoteTicket({
             <Field label="Empresa">{quote.nome_empresa ?? "—"}</Field>
           )}
           <Field label="Evento">{quote.tipo_evento ?? "—"}</Field>
-          <Field label="Qtd.">{quote.quantitativo ?? "—"}</Field>
+          {(quote.data_evento || casamentos) && (
+            <Field label="Data">
+              {quote.data_evento ? formatDate(quote.data_evento) : NAO_INFORMADO}
+            </Field>
+          )}
+          <Field label="Qtd.">{quote.quantitativo ?? NAO_INFORMADO}</Field>
         </dl>
 
         <Rule />
@@ -187,11 +206,9 @@ export function QuoteTicket({
               })}
             </p>
           )}
-          <p className="text-ticket-muted">
-            {quote.consentimento
-              ? "✓ Autorizou contato comercial"
-              : "✗ Sem autorização de contato"}
-          </p>
+          {quote.consentimento && (
+            <p className="text-ticket-muted">✓ Autorizou contato comercial</p>
+          )}
         </footer>
 
         {actions && <div className="mt-4">{actions}</div>}
